@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from time import perf_counter
 from typing import Any
@@ -49,6 +50,93 @@ def _load_config_for_hook() -> ToolSlimmerConfig:
     except Exception as exc:
         LOG.warning("tool-slimmer config load failed; disabling selector for this request: %s", exc)
         return ToolSlimmerConfig(enabled=False)
+
+
+def _context_value(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return text or None
+    if isinstance(value, (list, tuple, set, dict)) and not value:
+        return None
+    return value
+
+
+def _env_value(name: str) -> str | None:
+    value = os.environ.get(name)
+    return _context_value(value)
+
+
+def _profile_from_home(profile_home: str | None) -> str | None:
+    if not profile_home:
+        return None
+    parts = [part for part in profile_home.replace("\\", "/").split("/") if part]
+    if len(parts) >= 2 and parts[-2] == "profiles":
+        return parts[-1]
+    if parts and parts[-1] == ".hermes":
+        return "default"
+    return None
+
+
+def build_decision_context(
+    *,
+    provider: str | None,
+    model: str,
+    platform: str,
+    session_id: str | None,
+    dry_run: bool,
+    schema_count: int,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, object]:
+    """Build non-secret selector context for decision logs and schema snapshots.
+
+    Hermes execution wrappers expose structural identifiers in environment
+    variables. Recording those identifiers makes delegated work measurable
+    without logging prompts, tool arguments, tool outputs, or credentials.
+    """
+
+    profile_home = _env_value("HERMES_HOME")
+    active_profile = _env_value("HERMES_PROFILE") or _profile_from_home(profile_home)
+    session_source = _env_value("HERMES_SESSION_SOURCE")
+    kanban_task_id = _env_value("HERMES_KANBAN_TASK")
+
+    normalized_platform = (platform or "").strip().lower()
+    if kanban_task_id:
+        execution_kind = "kanban_worker"
+    elif session_source == "profile-delegate":
+        execution_kind = "profile_delegate"
+    elif normalized_platform == "subagent":
+        execution_kind = "subagent"
+    else:
+        execution_kind = "platform_turn"
+
+    context: dict[str, object] = {}
+    raw_context = {
+        "provider": provider,
+        "model": model,
+        "platform": platform,
+        "session_id": session_id,
+        "dry_run": dry_run,
+        "schema_count": schema_count,
+        "execution_kind": execution_kind,
+        "session_source": session_source,
+        "active_profile": active_profile,
+        "profile_home": profile_home,
+        "assignee_profile": active_profile if execution_kind in {"kanban_worker", "profile_delegate"} else None,
+        "kanban_task_id": kanban_task_id,
+        "kanban_board": _env_value("HERMES_KANBAN_BOARD"),
+        "kanban_run_id": _env_value("HERMES_KANBAN_RUN_ID"),
+        "kanban_workspace": _env_value("HERMES_KANBAN_WORKSPACE"),
+        "kanban_branch": _env_value("HERMES_KANBAN_BRANCH"),
+    }
+    if extra:
+        raw_context.update(extra)
+    for key, value in raw_context.items():
+        clean = _context_value(value)
+        if clean is not None:
+            context[key] = clean
+    return context
 
 
 def _sync_live_index(schemas: list[Schema], min_total_tools: int, context: dict[str, Any] | None = None) -> None:
@@ -301,18 +389,22 @@ def select_tool_schemas_callback(
         recovery_meta_injected: list[str] = []
         if str(platform or "").strip().lower() == "acp":
             schemas, recovery_meta_injected = _ensure_recovery_tool_schemas(schemas)
-        _sync_live_index(
-            schemas,
-            cfg.min_total_tools,
-            {
-                "provider": provider,
-                "model": model,
-                "platform": platform,
-                "session_id": session_id,
-                "schema_count": len(schemas),
+        decision_context = build_decision_context(
+            provider=provider,
+            model=model,
+            platform=platform,
+            session_id=session_id,
+            dry_run=cfg.dry_run,
+            schema_count=len(schemas),
+            extra={
                 "upstream_schema_count": upstream_schema_count,
                 "recovery_meta_injected": recovery_meta_injected,
             },
+        )
+        _sync_live_index(
+            schemas,
+            cfg.min_total_tools,
+            decision_context,
         )
         if native_tool_search_active(schemas):
             bridge_tools = native_tool_search_bridge_names(schemas)
@@ -325,17 +417,7 @@ def select_tool_schemas_callback(
             if cfg.log_decisions:
                 LOG.info("tool-slimmer skipped; Hermes native Tool Search is active", extra={"tool_slimmer": metrics})
                 try:
-                    record_decision(
-                        metrics,
-                        {
-                            "provider": provider,
-                            "model": model,
-                            "platform": platform,
-                            "session_id": session_id,
-                            "dry_run": cfg.dry_run,
-                            "schema_count": len(schemas),
-                        },
-                    )
+                    record_decision(metrics, decision_context)
                 except Exception as exc:
                     LOG.warning("tool-slimmer decision logging failed: %s", exc)
             return None
@@ -348,17 +430,7 @@ def select_tool_schemas_callback(
             if cfg.log_decisions:
                 LOG.info("tool-slimmer full schema fallback", extra={"tool_slimmer": metrics})
                 try:
-                    record_decision(
-                        metrics,
-                        {
-                            "provider": provider,
-                            "model": model,
-                            "platform": platform,
-                            "session_id": session_id,
-                            "dry_run": cfg.dry_run,
-                            "schema_count": len(schemas),
-                        },
-                    )
+                    record_decision(metrics, decision_context)
                 except Exception as exc:
                     LOG.warning("tool-slimmer decision logging failed: %s", exc)
             return None if cfg.dry_run else policy_schemas
@@ -371,17 +443,7 @@ def select_tool_schemas_callback(
             if cfg.log_decisions:
                 LOG.info("tool-slimmer skipped", extra={"tool_slimmer": metrics})
                 try:
-                    record_decision(
-                        metrics,
-                        {
-                            "provider": provider,
-                            "model": model,
-                            "platform": platform,
-                            "session_id": session_id,
-                            "dry_run": cfg.dry_run,
-                            "schema_count": len(schemas),
-                        },
-                    )
+                    record_decision(metrics, decision_context)
                 except Exception as exc:
                     LOG.warning("tool-slimmer decision logging failed: %s", exc)
             if cfg.dry_run or len(policy_schemas) == len(schemas):
@@ -508,17 +570,7 @@ def select_tool_schemas_callback(
         if cfg.log_decisions:
             LOG.info("tool-slimmer selection", extra={"tool_slimmer": metrics})
             try:
-                record_decision(
-                    metrics,
-                    {
-                        "provider": provider,
-                        "model": model,
-                        "platform": platform,
-                        "session_id": session_id,
-                        "dry_run": cfg.dry_run,
-                        "schema_count": len(schemas),
-                    },
-                )
+                record_decision(metrics, decision_context)
             except Exception as exc:
                 LOG.warning("tool-slimmer decision logging failed: %s", exc)
         if cfg.dry_run:

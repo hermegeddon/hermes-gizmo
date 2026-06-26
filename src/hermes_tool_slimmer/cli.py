@@ -107,7 +107,24 @@ def privacy_inventory() -> dict[str, object]:
         "raw_prompts_logged": False,
         "decision_log_path": str(IndexStore().root / "decisions.jsonl"),
         "event_fields": ["timestamp", "metrics", "context"],
-        "context_fields": ["provider", "model", "platform", "session_id", "dry_run", "schema_count"],
+        "context_fields": [
+            "provider",
+            "model",
+            "platform",
+            "session_id",
+            "dry_run",
+            "schema_count",
+            "execution_kind",
+            "session_source",
+            "active_profile",
+            "profile_home",
+            "assignee_profile",
+            "kanban_task_id",
+            "kanban_board",
+            "kanban_run_id",
+            "kanban_workspace",
+            "kanban_branch",
+        ],
         "metric_fields": [
             "mode",
             "total_tools",
@@ -209,6 +226,11 @@ def diagnostic_report(limit: int = 200) -> dict[str, object]:
                     "platform": last_context.get("platform"),
                     "schema_count": last_context.get("schema_count"),
                     "dry_run": last_context.get("dry_run"),
+                    "execution_kind": last_context.get("execution_kind"),
+                    "active_profile": last_context.get("active_profile"),
+                    "assignee_profile": last_context.get("assignee_profile"),
+                    "kanban_task_id": last_context.get("kanban_task_id"),
+                    "kanban_board": last_context.get("kanban_board"),
                     "has_session_id": bool(last_context.get("session_id")),
                 },
                 "metrics": {
@@ -478,6 +500,9 @@ def setup_argparse(parser: argparse.ArgumentParser) -> None:
     sub.add_parser("privacy")
     diagnostics = sub.add_parser("diagnostics")
     diagnostics.add_argument("--limit", type=int, default=200)
+    coverage = sub.add_parser("execution-coverage", help="Report Tool Slimmer decision-log coverage across profiles and Kanban worker runs")
+    coverage.add_argument("--home", default=str(Path.home() / ".hermes"), help="Hermes home containing decisions.jsonl and profiles/")
+    coverage.add_argument("--since", help="Optional Unix timestamp or ISO-8601 lower bound for decisions/task runs")
     sub.add_parser("state-migration-plan", help="Print a read-only Tool Slimmer -> Gizmo state/config migration plan")
     sub.add_parser("recommend-config")
 
@@ -502,6 +527,17 @@ def handle_cli(args: argparse.Namespace) -> int:
         return 0
     if args.command == "diagnostics":
         print(json.dumps(diagnostic_report(limit=getattr(args, "limit", 200)), indent=2, sort_keys=True))
+        return 0
+    if args.command == "execution-coverage":
+        from .execution_coverage import execution_coverage_report, parse_since
+
+        print(
+            json.dumps(
+                execution_coverage_report(getattr(args, "home", Path.home() / ".hermes"), since_ts=parse_since(getattr(args, "since", None))),
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 0
     if args.command == "state-migration-plan":
         from .state_migration import plan_state_migration
