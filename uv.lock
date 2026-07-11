@@ -134,7 +134,7 @@ toml = [
 ]
 
 [[package]]
-name = "hermes-tool-slimmer"
+name = "hermes-gizmo"
 version = "0.7.0"
 source = { editable = "." }
 dependencies = [

@@ -24,8 +24,8 @@ from typing import Callable, Iterable, Sequence
 
 import yaml
 
-from hermes_tool_slimmer.config import hermes_home
-from hermes_tool_slimmer.tokenizer import tokenize
+from hermes_gizmo.config import hermes_home
+from hermes_gizmo.tokenizer import tokenize
 
 DEFAULT_DESCRIPTION_MAX_CHARS = 512
 _FRONTMATTER_MAX_CHARS = 32768

@@ -5,8 +5,8 @@ import tempfile
 
 import pytest
 
-from hermes_tool_slimmer.config import ToolSlimmerConfig
-from hermes_tool_slimmer.embeddings import (
+from hermes_gizmo.config import GizmoConfig
+from hermes_gizmo.embeddings import (
     EmbeddingCache,
     FakeEmbeddingProvider,
     OpenAIEmbeddingProvider,
@@ -14,7 +14,7 @@ from hermes_tool_slimmer.embeddings import (
     SemanticRanker,
     _stable_hash,
 )
-from hermes_tool_slimmer.selector import ToolSelector
+from hermes_gizmo.selector import ToolSelector
 
 
 SCHEMAS = [
@@ -225,7 +225,7 @@ class TestReciprocalRankFusion:
 
 class TestSemanticHybridSelector:
     def test_semantic_hybrid_mode_ranks(self):
-        cfg = ToolSlimmerConfig(mode="semantic_hybrid", top_k=2, always_include=[])
+        cfg = GizmoConfig(mode="semantic_hybrid", top_k=2, always_include=[])
         result = ToolSelector(cfg).select("send a message to slack", SCHEMAS)
         assert result.mode == "semantic_hybrid"
         assert "slack_send_message" in result.selected_names
@@ -234,13 +234,13 @@ class TestSemanticHybridSelector:
             assert "rrf" in result.score_details[name]
 
     def test_semantic_hybrid_with_always_includes(self):
-        cfg = ToolSlimmerConfig(mode="semantic_hybrid", top_k=1, always_include=["terminal"])
+        cfg = GizmoConfig(mode="semantic_hybrid", top_k=1, always_include=["terminal"])
         result = ToolSelector(cfg).select("github code", SCHEMAS)
         assert "terminal" in result.selected_names
         assert "github_search_code" in result.selected_names
 
     def test_fails_open_on_embedding_failure(self, monkeypatch):
-        cfg = ToolSlimmerConfig(mode="semantic_hybrid", top_k=2, always_include=[], fail_open=True)
+        cfg = GizmoConfig(mode="semantic_hybrid", top_k=2, always_include=[], fail_open=True)
         selector = ToolSelector(cfg)
 
         def _boom(*a, **k):
@@ -253,19 +253,19 @@ class TestSemanticHybridSelector:
         assert "github_search_code" in result.selected_names
 
     def test_semantic_cache_disabled(self, monkeypatch):
-        cfg = ToolSlimmerConfig(mode="semantic_hybrid", top_k=1, semantic_cache_enabled=False)
+        cfg = GizmoConfig(mode="semantic_hybrid", top_k=1, semantic_cache_enabled=False)
         result = ToolSelector(cfg).select("slack", SCHEMAS)
         assert result.mode == "semantic_hybrid"
         assert "slack_send_message" in result.selected_names
 
     def test_rrf_k_validation(self):
         with pytest.raises(ValueError, match="rrf_k"):
-            ToolSelector(ToolSlimmerConfig(mode="semantic_hybrid", rrf_k=0))
+            ToolSelector(GizmoConfig(mode="semantic_hybrid", rrf_k=0))
         with pytest.raises(ValueError, match="rrf_k"):
-            ToolSelector(ToolSlimmerConfig(mode="semantic_hybrid", rrf_k=-5))
+            ToolSelector(GizmoConfig(mode="semantic_hybrid", rrf_k=-5))
 
     def test_score_details_include_rrf_ranks(self):
-        cfg = ToolSlimmerConfig(mode="semantic_hybrid", top_k=3, always_include=[])
+        cfg = GizmoConfig(mode="semantic_hybrid", top_k=3, always_include=[])
         result = ToolSelector(cfg).select("search", SCHEMAS)
         for name in result.selected_names:
             details = result.score_details[name]
@@ -277,7 +277,7 @@ class TestSemanticHybridSelector:
 
 class TestSemanticHybridFallback:
     def test_low_information_query_still_works(self):
-        cfg = ToolSlimmerConfig(mode="semantic_hybrid", top_k=3, always_include=["memory"])
+        cfg = GizmoConfig(mode="semantic_hybrid", top_k=3, always_include=["memory"])
         schemas = [
             {"name": "memory", "description": "Remember information"},
             {"name": "terminal", "description": "Run shell commands"},
@@ -287,7 +287,7 @@ class TestSemanticHybridFallback:
         assert "memory" in result.selected_names
 
     def test_no_relevant_match_empty_slots(self):
-        cfg = ToolSlimmerConfig(mode="semantic_hybrid", top_k=2, always_include=[])
+        cfg = GizmoConfig(mode="semantic_hybrid", top_k=2, always_include=[])
         result = ToolSelector(cfg).select("xyzqwerty12345 nonsense", SCHEMAS)
         # Fake embeddings give deterministic non-zero cosine for any text.
         # We simply assert the selector doesn't fail open and returns coherent scores.
@@ -295,7 +295,7 @@ class TestSemanticHybridFallback:
         assert all(s >= 0 for s in result.scores.values())
 
     def test_below_min_score_empty(self):
-        cfg = ToolSlimmerConfig(mode="semantic_hybrid", top_k=3, always_include=[], min_score=9999.0)
+        cfg = GizmoConfig(mode="semantic_hybrid", top_k=3, always_include=[], min_score=9999.0)
         result = ToolSelector(cfg).select("search files", SCHEMAS)
         assert result.reason == "below_min_score"
 
@@ -312,7 +312,7 @@ class TestConfigIntegration:
             "rrf_k": 120.0,
             "semantic_cache_enabled": True,
         }
-        cfg = ToolSlimmerConfig.from_mapping(raw)
+        cfg = GizmoConfig.from_mapping(raw)
         assert cfg.semantic_provider == "openai"
         assert cfg.semantic_openai_model == "text-embedding-3-large"
         assert cfg.semantic_openai_base_url == "http://localhost:8080/v1"
@@ -322,11 +322,11 @@ class TestConfigIntegration:
         assert cfg.semantic_cache_enabled is True
 
     def test_default_semantic_config(self):
-        cfg = ToolSlimmerConfig()
+        cfg = GizmoConfig()
         assert cfg.semantic_provider == "fake"
         assert cfg.rrf_k == 60.0
         assert cfg.semantic_cache_enabled is True
 
     def test_mode_validation_rejects_invalid_mode(self):
         with pytest.raises(ValueError, match="semantic"):
-            ToolSlimmerConfig.from_mapping({"mode": "semantic_hybrid_bad"})
+            GizmoConfig.from_mapping({"mode": "semantic_hybrid_bad"})

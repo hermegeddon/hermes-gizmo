@@ -37,7 +37,7 @@ jobs:
         run: uv run mypy src tests
 
       - name: Compile
-        run: uv run python -m compileall -q src tests dashboard-plugin/tool-slimmer dashboard-plugin/gizmo
+        run: uv run python -m compileall -q src tests dashboard-plugin/gizmo
 
       - name: Test
         run: uv run pytest -q
@@ -55,8 +55,12 @@ jobs:
           /tmp/hermes-gizmo-smoke/bin/python -m pip install dist/*.whl
           /tmp/hermes-gizmo-smoke/bin/python - <<'PY'
           import importlib.metadata as md
-          import hermes_gizmo, hermes_tool_slimmer
-          print(md.version("hermes-tool-slimmer"))
-          print(hermes_gizmo.register is hermes_tool_slimmer.register)
+          import hermes_gizmo
+
+          assert md.version("hermes-gizmo") == hermes_gizmo.__version__
+          assert [(ep.name, ep.value) for ep in md.entry_points(group="hermes_agent.plugins")] == [
+              ("gizmo", "hermes_gizmo")
+          ]
+          print(hermes_gizmo.__version__)
           PY
           /tmp/hermes-gizmo-smoke/bin/hermes-gizmo --help

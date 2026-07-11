@@ -6,11 +6,13 @@
 
 ### Changed
 
-- Clarified that the Python distribution remains `hermes-tool-slimmer` while the canonical public project name moves to Hermes Gizmo during the compatibility window.
+- Completed the Hermes Gizmo hard rename across the Python distribution and namespace, plugin discovery, tools, commands, config/state paths, dashboard routes, scripts, documentation, and tests.
 
 ### Deprecated
 
 ### Removed
+
+- Removed the former compatibility package, plugin, command, dashboard, and runtime registration aliases.
 
 ### Fixed
 
@@ -28,11 +30,11 @@
 ### Added
 
 - Added public open-source maintenance files: support policy, code of conduct, issue templates, and pull request template.
-- Added `NOTICE` with upstream Hermes Tool Slimmer attribution and MIT license-preservation notes.
+- Added `NOTICE` with upstream attribution and MIT license-preservation notes.
 
 ### Changed
 
-- Updated public docs and package metadata toward the Hermes Gizmo community fork URL while preserving legacy `tool-slimmer` compatibility.
+- Updated public docs and package metadata toward the Hermes Gizmo community fork URL while retaining the compatibility layer used during that release.
 - Expanded CI/release validation to include mypy, canonical dashboard plugin compilation, package build, wheel asset checks, and temp install smoke.
 - Adopted an explicit SemVer release policy and bumped the community-preview line to `0.7.0`.
 
@@ -52,10 +54,10 @@ Security hardening release.
 
 - Enforces disabled tool, disabled toolset, MCP/native origin, and malformed-schema policy consistently across keyword, two-pass, Anthropic Tool Search, full-tool fallback, and guardrail skip paths.
 - Keeps global disabled-tool policy when applying platform profiles or Guided Setup recommendations.
-- Restricts model-callable `tool_slimmer_select` so it no longer reads live/indexed catalogs unless explicitly opted in and no longer accepts `mode: eager`.
+- Restricts model-callable `gizmo_select` so it no longer reads live/indexed catalogs unless explicitly opted in and no longer accepts `mode: eager`.
 - Stops logging prompt-derived expanded query tokens; decision logs now store only the expanded-query token count.
 - Redacts live snapshot summaries returned to the dashboard and refuses stale live-schema snapshots by default.
-- Avoids fixed `/tmp/hermes-tool-slimmer` installer commands in docs, prevents installer raw-decision output, and hardens self-heal systemd unit generation.
+- Avoids fixed `/tmp/hermes-gizmo` installer commands in docs, prevents installer raw-decision output, and hardens self-heal systemd unit generation.
 
 ## 0.6.1 - 2026-05-30
 
@@ -63,12 +65,12 @@ Install and support diagnostics repair release.
 
 ### Added
 
-- `hermes tool-slimmer diagnostics` emits a sanitized GitHub-issue support report without raw prompts, environment secrets, or session IDs.
+- `hermes gizmo diagnostics` emits a sanitized GitHub-issue support report without raw prompts, environment secrets, or session IDs.
 - Dashboard API exposes the same sanitized diagnostics at `/diagnostics`.
 
 ### Fixed
 
-- Installer-based dashboard/user-plugin installs now include a bundled `src/hermes_tool_slimmer` fallback so the dashboard can import the matching plugin package even when Hermes dashboard runs under a different Python launcher.
+- Installer-based dashboard/user-plugin installs now include a bundled `src/hermes_gizmo` fallback so the dashboard can import the matching plugin package even when Hermes dashboard runs under a different Python launcher.
 - Normal install docs and doctor messages now point users back to the installer compatibility patcher instead of asking them to manually apply the upstream Hermes core patch artifact.
 
 ## 0.6.0 - 2026-05-29
@@ -77,7 +79,7 @@ Experimental two-pass schema hydration release.
 
 ### Added
 
-- Experimental `mode: two_pass` with compact deterministic tool catalogs, batched schema hydration through `tool_slimmer_hydrate_tools`, session-scoped hydrated-tool caching, decision-log metrics, CLI/doctor/status visibility, and dashboard diagnostics.
+- Experimental `mode: two_pass` with compact deterministic tool catalogs, batched schema hydration through `gizmo_hydrate_tools`, session-scoped hydrated-tool caching, decision-log metrics, CLI/doctor/status visibility, and dashboard diagnostics.
 
 ## 0.5.3 - 2026-05-29
 
@@ -85,8 +87,8 @@ Dashboard git-install repair release.
 
 ### Fixed
 
-- Dashboard git installs now include the root dashboard bundle assets expected by Hermes' `/dashboard-plugins/tool-slimmer/dist/...` static routes.
-- Git-installed dashboard/API loading can import the repo-local `src/hermes_tool_slimmer` package before the repair installer has installed the Python package into the Hermes venv.
+- Dashboard git installs now include the root dashboard bundle assets expected by Hermes' `/dashboard-plugins/gizmo/dist/...` static routes.
+- Git-installed dashboard/API loading can import the repo-local `src/hermes_gizmo` package before the repair installer has installed the Python package into the Hermes venv.
 
 ## 0.5.2 - 2026-05-28
 
@@ -94,13 +96,13 @@ Hermes update repair release.
 
 ### Added
 
-- `scripts/update-hermes-and-repair-tool-slimmer.sh` to run `hermes update --yes`, preserve Hermes' normal backup behavior by default, rerun Tool Slimmer repair, and restart services after Hermes updates.
-- `scripts/self-heal-tool-slimmer.sh` with an optional user systemd unit for guarded boot/login repair when Tool Slimmer is enabled but the Hermes selector hook is missing.
+- `scripts/update-hermes-and-repair-gizmo.sh` to run `hermes update --yes`, preserve Hermes' normal backup behavior by default, rerun Gizmo repair, and restart services after Hermes updates.
+- `scripts/self-heal-gizmo.sh` with an optional user systemd unit for guarded boot/login repair when Gizmo is enabled but the Hermes selector hook is missing.
 
 ### Tested
 
 - Verified Hermes Agent update from v0.14.0 to v0.15.0 with default backup behavior and noninteractive `--yes` prompt handling.
-- Verified post-update Tool Slimmer repair on Hermes v0.15.0 and all-pass doctor after gateway/dashboard restart.
+- Verified post-update Gizmo repair on Hermes v0.15.0 and all-pass doctor after gateway/dashboard restart.
 - Verified the self-heal systemd unit installs, starts, exits cleanly in healthy no-op mode, and leaves gateway/dashboard active.
 
 ## 0.5.1 - 2026-05-28
@@ -111,7 +113,7 @@ Live snapshot clarity release.
 
 - Per-platform live schema snapshots for TUI, Slack, Telegram, and API server turns.
 - Dashboard and CLI status context explaining which live request snapshot populated the persisted index.
-- Dashboard snapshot chips so users can see why Hermes TUI and Tool Slimmer counts may differ by entry point.
+- Dashboard snapshot chips so users can see why Hermes TUI and Gizmo counts may differ by entry point.
 
 ### Tested
 
@@ -141,7 +143,7 @@ Missing skill-tool fallback release.
 
 ### Fixed
 
-- Full-tool fallback now survives the first user retry after `tool_slimmer_request_full_tools`, covering the common chat flow where the model asks the user to send another message before retrying.
+- Full-tool fallback now survives the first user retry after `gizmo_request_full_tools`, covering the common chat flow where the model asks the user to send another message before retrying.
 - Ambiguous retry messages now use recent assistant/tool mentions of known tool names, so a follow-up like `12` can still expose a recently requested tool such as `skill_view`.
 - Skill companion tools are kept together: selecting `skill_manage` or skill-context requests also keeps `skill_view` and `skills_list` available when present.
 
@@ -152,7 +154,7 @@ Dashboard git-install compatibility release.
 ### Changed
 
 - The repository root now includes the Hermes runtime plugin entry point and dashboard files, matching Hermes dashboard git-install expectations.
-- Git checkouts installed at `$HERMES_HOME/plugins/tool-slimmer` now stay clean after repair, so the dashboard can show `Source: git` and keep using `git pull`.
+- Git checkouts installed at `$HERMES_HOME/plugins/gizmo` now stay clean after repair, so the dashboard can show `Source: git` and keep using `git pull`.
 - Mypy configuration now uses explicit package bases so the root Hermes plugin entry point can coexist with the `src/` Python package layout.
 
 ## 0.4.5 - 2026-05-19
@@ -161,7 +163,7 @@ Dashboard installer compatibility release.
 
 ### Changed
 
-- The installer now supports being run from an in-place dashboard git checkout at `$HERMES_HOME/plugins/tool-slimmer` by overlaying the runtime plugin files without deleting the checkout, preserving future `git pull` updates from the plugin page.
+- The installer now supports being run from an in-place dashboard git checkout at `$HERMES_HOME/plugins/gizmo` by overlaying the runtime plugin files without deleting the checkout, preserving future `git pull` updates from the plugin page.
 - Plugin and dashboard manifest versions now track the package release version.
 
 ## 0.4.4 - 2026-05-19
@@ -190,8 +192,8 @@ Dashboard and operations release.
 ### Added
 
 - Hermes dashboard plugin with status, health checks, recent selection decisions, selected-tool visibility, and estimated schema-token savings.
-- Dashboard backend API routes for Tool Slimmer status, session-filtered summaries, full audit summaries, and raw recent events.
-- Durable JSONL decision logging under `$HERMES_HOME/tool-slimmer/decisions.jsonl`.
+- Dashboard backend API routes for Gizmo status, session-filtered summaries, full audit summaries, and raw recent events.
+- Durable JSONL decision logging under `$HERMES_HOME/gizmo/decisions.jsonl`.
 - One-command local installer/repair script and deterministic troubleshooting report script.
 - GitHub Actions test workflow plus README badges and professional README hero image.
 
@@ -210,9 +212,9 @@ Initial public release.
 
 ### Added
 
-- Hermes plugin entry point `tool-slimmer`.
+- Hermes plugin entry point `gizmo`.
 - Deterministic tokenizer, corpus builder, local BM25 ranker, and selector.
-- Config loader for `tool_slimmer` settings in Hermes config files.
+- Config loader for `gizmo` settings in Hermes config files.
 - CLI commands for status, doctor, index, select, benchmark, and config recommendations.
 - Slash command and JSON tool handlers.
 - Metrics for schema byte/token reduction estimates.

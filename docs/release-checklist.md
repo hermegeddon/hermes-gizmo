@@ -20,7 +20,7 @@ After `1.0.0`, apply normal SemVer strictly: breaking public API/CLI/config/data
 1. Reconcile remotes/tags and choose the release version.
 2. Update all version-bearing files consistently:
    - `pyproject.toml`
-   - `src/hermes_tool_slimmer/__init__.py`
+   - `src/hermes_gizmo/__init__.py`
    - root and dashboard plugin `plugin.yaml` files
    - dashboard `manifest.json` files
 3. Update `CHANGELOG.md` with user-facing changes and migration notes.
@@ -29,7 +29,7 @@ After `1.0.0`, apply normal SemVer strictly: breaking public API/CLI/config/data
    ```bash
    ruff check .
    mypy src tests
-   python -m compileall -q src tests dashboard-plugin/tool-slimmer dashboard-plugin/gizmo
+   python -m compileall -q src tests dashboard-plugin/gizmo
    pytest -q
    python -m build
    scripts/check-wheel-assets.sh

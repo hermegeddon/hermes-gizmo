@@ -1,6 +1,6 @@
 # Guided Setup
 
-This page is for people who want Tool Slimmer installed and tuned with the fewest manual steps.
+This page is for people who want Gizmo installed and tuned with the fewest manual steps.
 
 ## Easiest Path
 
@@ -13,7 +13,7 @@ This page is for people who want Tool Slimmer installed and tuned with the fewes
    ```
 
 4. Restart Hermes when the dashboard asks.
-5. Open **Tool Slimmer** in the dashboard.
+5. Open **Gizmo** in the dashboard.
 6. Click **Rebuild From Hermes Tools**.
 7. Click **Apply Recommended Config** in **Guided Setup**.
 8. Restart the gateway once more so active requests use the new config.
@@ -30,12 +30,12 @@ Install Hermes Gizmo from https://github.com/rzyns/hermes-gizmo.
 Use the Hermes virtualenv launcher, not a system Python launcher:
 HERMES_BIN="$HOME/.hermes/hermes-agent/venv/bin/hermes" bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
 
-If the repo is not downloaded yet, clone it into $HOME/hermes-gizmo first. If that directory already exists and is a git checkout, run git pull --ff-only there before installing. Do not use an old `/tmp/hermes-tool-slimmer` or `/tmp/hermes-gizmo` checkout.
+If the repo is not downloaded yet, clone it into $HOME/hermes-gizmo first. If that directory already exists and is a git checkout, run git pull --ff-only there before installing. Do not use an old `/tmp/hermes-gizmo` checkout.
 If the environment blocks direct script execution, request approval for that exact bash command.
 
 After install:
-1. Run $HOME/.hermes/hermes-agent/venv/bin/hermes tool-slimmer doctor
-2. Open the dashboard Tool Slimmer page
+1. Run $HOME/.hermes/hermes-agent/venv/bin/hermes gizmo doctor
+2. Open the dashboard Gizmo page
 3. Rebuild the tool index
 4. Apply the recommended config from Guided Setup
 5. Restart the Hermes gateway only after the install and config apply finish
@@ -59,12 +59,12 @@ Profiles are only applied when Hermes passes that platform name to the selector.
 
 If a recommended config makes your setup worse:
 
-1. Open Tool Slimmer in the dashboard.
+1. Open Gizmo in the dashboard.
 2. Find the backup path shown after **Apply Recommended Config**.
 3. Restore it from a terminal:
 
    ```bash
-   hermes tool-slimmer advisor --rollback /path/to/config-backup.yaml
+   hermes gizmo advisor --rollback /path/to/config-backup.yaml
    ```
 
 4. Restart the Hermes gateway.
@@ -72,7 +72,7 @@ If a recommended config makes your setup worse:
 If you do not have the backup path, backups are stored under:
 
 ```text
-~/.hermes/tool-slimmer/backups/
+~/.hermes/gizmo/backups/
 ```
 
 ## When To Rebuild Or Reapply

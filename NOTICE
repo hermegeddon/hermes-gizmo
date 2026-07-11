@@ -10,6 +10,5 @@ This fork keeps the upstream MIT license. The upstream copyright notice and
 MIT permission notice are preserved in LICENSE and must be included in all
 copies or substantial portions of the software.
 
-Hermes Gizmo adds compatibility aliases, diagnostics, dashboard refinements,
-state-migration planning, and other changes maintained by the Hermes Gizmo
-contributors.
+Hermes Gizmo adds diagnostics, dashboard refinements, progressive disclosure,
+and other changes maintained by the Hermes Gizmo contributors.

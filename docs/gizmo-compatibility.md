@@ -1,6 +1,6 @@
 # Hermes Gizmo Compatibility
 
-**Hermes Gizmo** is a community fork derived from upstream [`alias8818/hermes-tool-slimmer`](https://github.com/alias8818/hermes-tool-slimmer) under the MIT license. This document covers selector hook wiring, compatibility with legacy `tool-slimmer` names, and isolated-profile constraints for safe testing.
+**Hermes Gizmo** is an MIT-licensed community plugin. Its upstream provenance is recorded in `NOTICE`; this document covers selector hook wiring and isolated-profile constraints for safe testing.
 
 ## What This Document Covers
 
@@ -12,7 +12,7 @@
 
 ## Selector Hook Contract
 
-Hermes Gizmo uses the same selector hook surface as upstream Tool Slimmer. The `select_tool_schemas` callback is injected between `pre_llm_call` and provider request construction.
+Hermes Gizmo uses Hermes Agent's selector hook surface. The `select_tool_schemas` callback is injected between `pre_llm_call` and provider request construction.
 
 ### Registration Surface
 
@@ -59,9 +59,9 @@ Hermes supports per-profile plugin paths and configurations. For first-time test
 
 ```
 ~/.hermes/profiles/hermes-gizmo/          # profile-scoped Hermes home
-  config.yaml                             # plugins.enabled includes tool-slimmer
+  config.yaml                             # plugins.enabled includes gizmo
   plugins/
-    tool-slimmer/ -> ../../.../repo/      # symlink or copy
+    gizmo/ -> ../../.../repo/      # symlink or copy
 
 # Source repo (this checkout)
 $HOME/hermes-gizmo
@@ -74,9 +74,9 @@ In `~/.hermes/profiles/hermes-gizmo/config.yaml` (or wherever `HERMES_HOME` poin
 ```yaml
 plugins:
   enabled:
-    - tool-slimmer
+    - gizmo
 
-tool_slimmer:
+gizmo:
   enabled: true
   mode: keyword        # or hybrid / semantic_hybrid
   top_k: 8
@@ -92,14 +92,14 @@ tool_slimmer:
 
 ### Avoid Global Plugin Enablement
 
-Do **not** add `tool-slimmer` to the root profile's `plugins.enabled` list unless that is explicitly intended. Hermes Gizmo has experimental modes (`semantic_hybrid`, progressive tools) that may not fit every production profile.
+Do **not** add `gizmo` to the root profile's `plugins.enabled` list unless that is explicitly intended. Hermes Gizmo has experimental modes (`semantic_hybrid`, progressive tools) that may not fit every production profile.
 
 ### Activation Steps
 
 1. Activate the target profile (e.g., by setting `HERMES_PROFILE=hermes-gizmo` before launching Hermes).
 2. Ensure the plugin source is discoverable under that profile's plugin path.
 3. Launch Hermes. The plugin registration happens during plugin loading.
-4. Run `hermes tool-slimmer doctor` to confirm:
+4. Run `hermes gizmo doctor` to confirm:
    - Config is valid.
    - Plugin is enabled.
    - Core selector hook is available (or note if it is missing).
@@ -108,7 +108,7 @@ Do **not** add `tool-slimmer` to the root profile's `plugins.enabled` list unles
 
 The following actions are outside this compatibility guide and require separate maintainer approval:
 
-- Submitting an upstream PR to `alias8818/hermes-tool-slimmer`
+- Publishing changes outside the Hermes Gizmo repository
 - Publishing a package to PyPI or any package registry
 - Installing/enabling the plugin on the default Hermes profile
 - Restarting the Hermes gateway in a shared environment
@@ -146,7 +146,7 @@ If `doctor` shows `core_selector_hook: warn`, your Hermes core does not advertis
 
 ### "Plugin not listed in plugins.enabled"
 
-If `doctor` shows `plugin_enabled: warn`, check that the active Hermes profile's `config.yaml` includes `tool-slimmer` in `plugins.enabled`.
+If `doctor` shows `plugin_enabled: warn`, check that the active Hermes profile's `config.yaml` includes `gizmo` in `plugins.enabled`.
 
 ### "Config file not found"
 

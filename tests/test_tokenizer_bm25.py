@@ -1,5 +1,5 @@
-from hermes_tool_slimmer.bm25 import BM25
-from hermes_tool_slimmer.tokenizer import tokenize
+from hermes_gizmo.bm25 import BM25
+from hermes_gizmo.tokenizer import tokenize
 
 
 def test_tokenizer_splits_snake_and_kebab_case():

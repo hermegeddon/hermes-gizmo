@@ -1,11 +1,11 @@
 {
-  "name": "tool-slimmer",
+  "name": "gizmo",
   "label": "Gizmo",
   "description": "Show Hermes Gizmo selection activity and estimated schema token savings.",
   "icon": "Scissors",
   "version": "0.7.0",
   "tab": {
-    "path": "/tool-slimmer",
+    "path": "/gizmo",
     "position": "after:plugins"
   },
   "entry": "dist/index.js",

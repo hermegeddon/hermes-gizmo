@@ -28,15 +28,15 @@ def _safe_int(value: Any) -> int:
 def _load_modules():
     _ensure_local_src_path()
     try:
-        from hermes_tool_slimmer.advisor import apply_recommended_config, apply_tool_preference, analyze_config, rollback_config
-        from hermes_tool_slimmer.cli import eval_markdown, eval_prompts, privacy_inventory, run_doctor
-        from hermes_tool_slimmer.config import load_config
-        from hermes_tool_slimmer.index_store import IndexStore
-        from hermes_tool_slimmer.metrics import read_decisions, summarize_decisions
+        from hermes_gizmo.advisor import apply_recommended_config, apply_tool_preference, analyze_config, rollback_config
+        from hermes_gizmo.cli import eval_markdown, eval_prompts, privacy_inventory, run_doctor
+        from hermes_gizmo.config import load_config
+        from hermes_gizmo.index_store import IndexStore
+        from hermes_gizmo.metrics import read_decisions, summarize_decisions
     except Exception as exc:  # pragma: no cover - import environment dependent
         raise HTTPException(
             status_code=503,
-            detail={"error": "tool_slimmer_unavailable", "message": str(exc)},
+            detail={"error": "gizmo_unavailable", "message": str(exc)},
         ) from exc
     return analyze_config, apply_recommended_config, apply_tool_preference, rollback_config, eval_markdown, eval_prompts, privacy_inventory, run_doctor, load_config, IndexStore, read_decisions, summarize_decisions
 
@@ -76,7 +76,7 @@ def _summarize_index(store: Any) -> dict[str, Any]:
 
 def _last_live_request_schemas() -> list[dict[str, Any]]:
     try:
-        from hermes_tool_slimmer.index_store import IndexStore
+        from hermes_gizmo.index_store import IndexStore
     except Exception:
         return []
     schemas = IndexStore().load_live_schemas()
@@ -144,9 +144,9 @@ async def status() -> dict[str, Any]:
     try:
         cfg = load_config()
     except Exception as exc:
-        from hermes_tool_slimmer.config import ToolSlimmerConfig
+        from hermes_gizmo.config import GizmoConfig
 
-        cfg = ToolSlimmerConfig(enabled=False)
+        cfg = GizmoConfig(enabled=False)
         config_error = str(exc)
     store = IndexStore()
     index = store.load() or {}
@@ -245,9 +245,9 @@ async def advisor(limit: int = Query(default=1000, ge=1, le=10000)) -> dict[str,
     try:
         cfg = load_config()
     except Exception as exc:
-        from hermes_tool_slimmer.config import ToolSlimmerConfig
+        from hermes_gizmo.config import GizmoConfig
 
-        cfg = ToolSlimmerConfig(enabled=False)
+        cfg = GizmoConfig(enabled=False)
         return {"ok": False, "error": str(exc), "advisor": analyze_config(cfg, summarize_decisions(limit=limit, require_session=True), 0)}
     index = IndexStore().load() or {}
     documents = index.get("documents") if isinstance(index.get("documents"), list) else []
@@ -300,11 +300,11 @@ async def privacy() -> dict[str, Any]:
 async def diagnostics(limit: int = Query(default=200, ge=1, le=10000)) -> dict[str, Any]:
     _ensure_local_src_path()
     try:
-        from hermes_tool_slimmer.cli import diagnostic_report
+        from hermes_gizmo.cli import diagnostic_report
     except Exception as exc:  # pragma: no cover - import environment dependent
         raise HTTPException(
             status_code=503,
-            detail={"error": "tool_slimmer_unavailable", "message": str(exc)},
+            detail={"error": "gizmo_unavailable", "message": str(exc)},
         ) from exc
     return {"ok": True, "diagnostics": diagnostic_report(limit=limit)}
 
@@ -340,8 +340,8 @@ async def eval_report() -> dict[str, Any]:
     try:
         cfg = load_config()
     except Exception:
-        from hermes_tool_slimmer.config import ToolSlimmerConfig
+        from hermes_gizmo.config import GizmoConfig
 
-        cfg = ToolSlimmerConfig(enabled=False)
+        cfg = GizmoConfig(enabled=False)
     report = eval_prompts(cfg, schemas, prompts)
     return {"ok": True, "markdown": eval_markdown(report), "report": report}

@@ -15,8 +15,8 @@ For bugs, include:
 - Hermes Agent version
 - Hermes Gizmo version or commit SHA
 - install method: dashboard git install, script installer, editable checkout, or package install
-- relevant sanitized config (`tool_slimmer` section, with secrets removed)
-- output from `hermes tool-slimmer doctor` or `hermes gizmo doctor` when available
+- relevant sanitized config (`gizmo` section, with secrets removed)
+- output from `hermes gizmo doctor` when available
 - expected behavior and actual behavior
 
 ## Boundaries

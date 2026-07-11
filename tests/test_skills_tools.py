@@ -6,22 +6,22 @@ from stat import S_IMODE
 from typing import Any, cast
 from unittest.mock import MagicMock
 
-from hermes_tool_slimmer import register
-from hermes_tool_slimmer.schemas import (
+from hermes_gizmo import register
+from hermes_gizmo.schemas import (
     CLEAR_VISIBLE_SKILL_PINS_SCHEMA,
     REQUEST_FULL_SKILL_INDEX_SCHEMA,
     SKILL_DETAILS_SCHEMA,
     SKILL_SEARCH_SCHEMA,
     VISIBLE_SKILL_PINS_SCHEMA,
 )
-from hermes_tool_slimmer.skills_tools import (
+from hermes_gizmo.skills_tools import (
     FULL_SKILL_INDEX_REQUEST_MARKER,
     VisibleSkillPinState,
-    tool_slimmer_clear_visible_skill_pins,
-    tool_slimmer_request_full_skill_index,
-    tool_slimmer_skill_details,
-    tool_slimmer_skill_search,
-    tool_slimmer_visible_skill_pins,
+    gizmo_clear_visible_skill_pins,
+    gizmo_request_full_skill_index,
+    gizmo_skill_details,
+    gizmo_skill_search,
+    gizmo_visible_skill_pins,
 )
 
 
@@ -68,7 +68,7 @@ class TestSkillSearchTool:
         _write_skill(root, "hermes-profile-hygiene", "Profile resolver visibility diagnostics", body="BODY_SENTINEL_DO_NOT_LEAK")
         _write_skill(root, "creative-sketch", "Sketch a visual design")
 
-        result = json.loads(tool_slimmer_skill_search({"query": "profile resolver", "limit": 5}, roots=[root]))
+        result = json.loads(gizmo_skill_search({"query": "profile resolver", "limit": 5}, roots=[root]))
 
         assert result["ok"] is True
         assert result["metadata_only"] is True
@@ -84,7 +84,7 @@ class TestSkillSearchTool:
         _write_skill(root, "alpha", "Alpha skill")
         _write_skill(root, "beta", "Beta skill")
 
-        result = json.loads(tool_slimmer_skill_search({"query": "", "limit": 1}, roots=[root]))
+        result = json.loads(gizmo_skill_search({"query": "", "limit": 1}, roots=[root]))
 
         assert result["ok"] is True
         assert result["count"] == 1
@@ -96,7 +96,7 @@ class TestSkillSearchTool:
         _write_skill(root, "hidden-from-default", "Should not be reached from model args")
 
         result = json.loads(
-            tool_slimmer_skill_search(
+            gizmo_skill_search(
                 {"query": "hidden", "roots": [str(root)], "include_raw_paths": True}
             )
         )
@@ -113,7 +113,7 @@ class TestSkillDetailsAndPins:
         _write_skill(root, "hermes-agent", "Configure Hermes Agent", body="BODY_SENTINEL_DO_NOT_LEAK")
 
         pinned = json.loads(
-            tool_slimmer_skill_details(
+            gizmo_skill_details(
                 {"name": "hermes-agent", "pin_visible": True, "session_id": "s1"},
                 roots=[root],
             )
@@ -124,13 +124,13 @@ class TestSkillDetailsAndPins:
         assert "skill_view" in pinned["message"]
         assert "BODY_SENTINEL_DO_NOT_LEAK" not in json.dumps(pinned)
 
-        pins = json.loads(tool_slimmer_visible_skill_pins({"session_id": "s1"}))
+        pins = json.loads(gizmo_visible_skill_pins({"session_id": "s1"}))
         assert pins["ok"] is True
         assert pins["count"] == 1
         assert "hermes-agent" in pins["visible_skill_pins"]
 
         unpinned = json.loads(
-            tool_slimmer_skill_details(
+            gizmo_skill_details(
                 {"name": "hermes-agent", "unpin_visible": True, "session_id": "s1"},
                 roots=[root],
             )
@@ -143,7 +143,7 @@ class TestSkillDetailsAndPins:
         state_path = tmp_path / "pins.json"
         root = tmp_path / "skills"
         _write_skill(root, "alpha", "Alpha skill")
-        search = json.loads(tool_slimmer_skill_search({"query": "alpha"}, roots=[root]))
+        search = json.loads(gizmo_skill_search({"query": "alpha"}, roots=[root]))
         assert search["ok"] is True
 
         from hermes_gizmo.skills_catalog import build_skill_catalog
@@ -159,10 +159,10 @@ class TestSkillDetailsAndPins:
         monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
         root = tmp_path / "skills"
         _write_skill(root, "alpha", "Alpha skill")
-        tool_slimmer_skill_details({"name": "alpha", "pin_visible": True, "session_id": "s1"}, roots=[root])
+        gizmo_skill_details({"name": "alpha", "pin_visible": True, "session_id": "s1"}, roots=[root])
 
-        cleared = json.loads(tool_slimmer_clear_visible_skill_pins({"session_id": "s1"}))
-        pins = json.loads(tool_slimmer_visible_skill_pins({"session_id": "s1"}))
+        cleared = json.loads(gizmo_clear_visible_skill_pins({"session_id": "s1"}))
+        pins = json.loads(gizmo_visible_skill_pins({"session_id": "s1"}))
 
         assert cleared["ok"] is True
         assert cleared["cleared"] == 1
@@ -183,7 +183,7 @@ class TestSkillDetailsAndPins:
 
 class TestRequestFullSkillIndex:
     def test_request_full_skill_index_returns_marker(self) -> None:
-        result = json.loads(tool_slimmer_request_full_skill_index({"reason": "missing expected skill"}))
+        result = json.loads(gizmo_request_full_skill_index({"reason": "missing expected skill"}))
 
         assert result["ok"] is True
         assert result[FULL_SKILL_INDEX_REQUEST_MARKER] is True
@@ -192,24 +192,18 @@ class TestRequestFullSkillIndex:
 
 
 class TestSkillToolRegistration:
-    def test_register_exposes_skill_tools_under_legacy_and_gizmo_names(self) -> None:
+    def test_register_exposes_canonical_gizmo_skill_tools(self) -> None:
         ctx = MagicMock()
         register(ctx)
         names = [call.kwargs["name"] for call in ctx.register_tool.call_args_list]
 
         for name in (
-            "tool_slimmer_skill_search",
             "gizmo_skill_search",
-            "tool_slimmer_skill_details",
             "gizmo_skill_details",
-            "tool_slimmer_visible_skill_pins",
             "gizmo_visible_skill_pins",
-            "tool_slimmer_clear_visible_skill_pins",
             "gizmo_clear_visible_skill_pins",
-            "tool_slimmer_request_full_skill_index",
             "gizmo_request_full_skill_index",
         ):
             assert name in names
 
-        assert "tool_slimmer_tool_search" in names
         assert "gizmo_tool_search" in names

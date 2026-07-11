@@ -18,7 +18,7 @@ done
 
 # Verify the installer references the canonical source
 expected_dashboard_src="DASHBOARD_SRC=\"\$ROOT_DIR/dashboard\""
-if grep -Fq "$expected_dashboard_src" "$ROOT_DIR/scripts/install-hermes-tool-slimmer.sh"; then
+if grep -Fq "$expected_dashboard_src" "$ROOT_DIR/scripts/install-hermes-gizmo.sh"; then
   echo "OK  installer references canonical dashboard/dist"
 else
   echo "FAIL installer does not reference canonical dashboard/dist"

@@ -1,8 +1,8 @@
 plugins:
   enabled:
-    - tool-slimmer
+    - gizmo
 
-tool_slimmer:
+gizmo:
   enabled: true
   mode: keyword
   top_k: 8

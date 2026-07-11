@@ -2,7 +2,7 @@
 
 Thanks for helping improve Hermes Gizmo. This project is intentionally small, deterministic, and fail-open because it influences which tool schemas Hermes sends to model providers.
 
-Hermes Gizmo is based on upstream [`alias8818/hermes-tool-slimmer`](https://github.com/alias8818/hermes-tool-slimmer) and remains MIT licensed. Please preserve upstream attribution and legacy `tool-slimmer` compatibility unless a change explicitly includes a reviewed migration plan.
+Hermes Gizmo remains MIT licensed and preserves its upstream attribution in `NOTICE` and `LICENSE`. New code, tests, documentation, and packaging must use only the canonical Gizmo names.
 
 ## Development setup
 
@@ -22,7 +22,7 @@ Run the same checks used for release:
 ```bash
 ruff check .
 mypy src tests
-python -m compileall -q src tests dashboard-plugin/tool-slimmer dashboard-plugin/gizmo
+python -m compileall -q src tests dashboard-plugin/gizmo
 pytest -q
 python -m build
 scripts/check-wheel-assets.sh

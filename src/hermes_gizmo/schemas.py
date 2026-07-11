@@ -1,9 +1,174 @@
-"""Compatibility alias for :mod:`hermes_tool_slimmer.schemas`."""
+STATUS_SCHEMA = {
+    "name": "gizmo_status",
+    "description": "Return Hermes Gizmo status and configuration.",
+    "parameters": {"type": "object", "properties": {}},
+}
 
-from __future__ import annotations
+SELECT_SCHEMA = {
+    "name": "gizmo_select",
+    "description": "Select likely relevant tools for a query from provided tool schemas.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string"},
+            "schemas": {"type": "array", "items": {"type": "object"}},
+            "mode": {"type": "string", "enum": ["eager", "keyword", "hybrid", "anthropic_tool_search", "semantic_hybrid", "two_pass"]},
+        },
+        "required": ["query"],
+    },
+}
 
-from importlib import import_module as _import_module
-import sys as _sys
+HYDRATE_TOOLS_SCHEMA = {
+    "name": "gizmo_hydrate_tools",
+    "description": (
+        "Request full schemas for specific tools in experimental Gizmo two-pass mode. "
+        "This does not execute the tools; it only exposes their schemas on the next model call."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "tools": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Tool names whose full schemas should be exposed on the next model call.",
+            },
+            "reason": {
+                "type": "string",
+                "description": "Short explanation of why these full schemas are needed.",
+            },
+        },
+        "required": ["tools"],
+    },
+}
 
-_legacy_module = _import_module("hermes_tool_slimmer.schemas")
-_sys.modules[__name__] = _legacy_module
+REQUEST_FULL_TOOLS_SCHEMA = {
+    "name": "gizmo_request_full_tools",
+    "description": (
+        "Request the full Hermes tool schema set for the next model call when "
+        "a required tool is missing from the trimmed tool list."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "reason": {
+                "type": "string",
+                "description": "Short explanation of the missing tool or skill requirement.",
+            }
+        },
+    },
+}
+
+TOOL_SEARCH_SCHEMA = {
+    "name": "gizmo_tool_search",
+    "description": "Search available tools by query and return ranked, loadable results.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Search query to match against tool names, descriptions, and toolsets.",
+            },
+        },
+        "required": ["query"],
+    },
+}
+
+TOOL_DETAILS_SCHEMA = {
+    "name": "gizmo_tool_details",
+    "description": "Return detailed information about a specific tool by name. Optionally load or unload it from session state.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "Tool name to look up.",
+            },
+            "load": {
+                "type": "boolean",
+                "description": "If true, load the tool into session-loaded state after returning details.",
+            },
+            "unload": {
+                "type": "boolean",
+                "description": "If true, unload the tool from session-loaded state.",
+            },
+        },
+        "required": ["name"],
+    },
+}
+
+LOADED_TOOLS_SCHEMA = {
+    "name": "gizmo_loaded_tools",
+    "description": "List currently session-loaded tools with metadata and expiry.",
+    "parameters": {"type": "object", "properties": {}},
+}
+
+SKILL_SEARCH_SCHEMA = {
+    "name": "gizmo_skill_search",
+    "description": "Search resolver-visible Hermes skills by query and return metadata-only ranked results.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Search query to match against skill names, categories, tags, and descriptions.",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Maximum number of skill metadata results to return.",
+            },
+        },
+        "required": ["query"],
+        "additionalProperties": False,
+    },
+}
+
+SKILL_DETAILS_SCHEMA = {
+    "name": "gizmo_skill_details",
+    "description": "Return metadata for one Hermes skill. Optionally pin or unpin its metadata visibility; does not load SKILL.md instructions.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "Skill name or qualified name to inspect.",
+            },
+            "pin_visible": {
+                "type": "boolean",
+                "description": "If true, keep this skill metadata visible in future reduced skill-index views.",
+            },
+            "unpin_visible": {
+                "type": "boolean",
+                "description": "If true, remove this skill metadata from visible skill pins.",
+            },
+        },
+        "required": ["name"],
+        "additionalProperties": False,
+    },
+}
+
+VISIBLE_SKILL_PINS_SCHEMA = {
+    "name": "gizmo_visible_skill_pins",
+    "description": "List skill metadata entries pinned visible for the current session.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+}
+
+CLEAR_VISIBLE_SKILL_PINS_SCHEMA = {
+    "name": "gizmo_clear_visible_skill_pins",
+    "description": "Clear skill metadata visibility pins for the current session.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+}
+
+REQUEST_FULL_SKILL_INDEX_SCHEMA = {
+    "name": "gizmo_request_full_skill_index",
+    "description": "Request full Hermes skill-index visibility for a future core prompt hook; Phase 1.5 records a diagnostic marker only.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "reason": {
+                "type": "string",
+                "description": "Short explanation of the missing skill or discovery requirement.",
+            }
+        },
+        "additionalProperties": False,
+    },
+}

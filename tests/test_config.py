@@ -1,11 +1,11 @@
 import pytest
 import yaml
 
-from hermes_tool_slimmer.config import ToolSlimmerConfig, load_config
+from hermes_gizmo.config import GizmoConfig, load_config
 
 
 def test_config_defaults():
-    cfg = ToolSlimmerConfig.from_mapping({})
+    cfg = GizmoConfig.from_mapping({})
     assert cfg.enabled is True
     assert cfg.mode == "keyword"
     assert cfg.top_k == 8
@@ -13,7 +13,7 @@ def test_config_defaults():
 
 
 def test_config_full_mapping_and_nested_anthropic():
-    cfg = ToolSlimmerConfig.from_mapping(
+    cfg = GizmoConfig.from_mapping(
         {
             "enabled": False,
             "mode": "anthropic_tool_search",
@@ -45,12 +45,12 @@ def test_config_full_mapping_and_nested_anthropic():
 
 
 def test_config_ignores_invalid_anthropic_section_type():
-    cfg = ToolSlimmerConfig.from_mapping({"anthropic": "tool_search"})
+    cfg = GizmoConfig.from_mapping({"anthropic": "tool_search"})
     assert cfg.anthropic.variant == "bm25"
 
 
 def test_config_normalizes_string_list_shorthand():
-    cfg = ToolSlimmerConfig.from_mapping(
+    cfg = GizmoConfig.from_mapping(
         {
             "always_include": "terminal",
             "disabled_tools": ["danger", 123],
@@ -66,14 +66,14 @@ def test_config_normalizes_string_list_shorthand():
 
 
 def test_config_accepts_always_exclude_alias():
-    cfg = ToolSlimmerConfig.from_mapping({"always_exclude": ["terminal", "cronjob"]})
+    cfg = GizmoConfig.from_mapping({"always_exclude": ["terminal", "cronjob"]})
 
     assert cfg.disabled_tools == ["terminal", "cronjob"]
     assert cfg.always_exclude == ["terminal", "cronjob"]
 
 
 def test_config_profiles_overlay_by_platform():
-    cfg = ToolSlimmerConfig.from_mapping(
+    cfg = GizmoConfig.from_mapping(
         {
             "top_k": 8,
             "always_include": ["terminal"],
@@ -100,7 +100,7 @@ def test_config_profiles_overlay_by_platform():
 
 
 def test_exact_tui_profile_does_not_apply_to_cli_platform():
-    cfg = ToolSlimmerConfig.from_mapping(
+    cfg = GizmoConfig.from_mapping(
         {
             "dry_run": True,
             "profiles": {
@@ -114,7 +114,7 @@ def test_exact_tui_profile_does_not_apply_to_cli_platform():
 
 
 def test_tui_platform_falls_back_to_cli_profile_when_tui_profile_absent():
-    cfg = ToolSlimmerConfig.from_mapping(
+    cfg = GizmoConfig.from_mapping(
         {
             "dry_run": True,
             "profiles": {
@@ -127,7 +127,7 @@ def test_tui_platform_falls_back_to_cli_profile_when_tui_profile_absent():
 
 
 def test_profile_overlay_merges_disabled_policy():
-    cfg = ToolSlimmerConfig.from_mapping(
+    cfg = GizmoConfig.from_mapping(
         {
             "disabled_tools": ["global_block"],
             "disabled_toolsets": ["global_toolset"],
@@ -148,41 +148,41 @@ def test_profile_overlay_merges_disabled_policy():
 
 def test_config_rejects_invalid_structured_types():
     with pytest.raises(ValueError, match="always_include"):
-        ToolSlimmerConfig.from_mapping({"always_include": {"terminal": True}})
+        GizmoConfig.from_mapping({"always_include": {"terminal": True}})
     with pytest.raises(ValueError, match="aliases"):
-        ToolSlimmerConfig.from_mapping({"aliases": ["repo"]})
+        GizmoConfig.from_mapping({"aliases": ["repo"]})
     with pytest.raises(ValueError, match="enabled"):
-        ToolSlimmerConfig.from_mapping({"enabled": "yes"})
+        GizmoConfig.from_mapping({"enabled": "yes"})
     with pytest.raises(ValueError, match="tool_search_supported"):
-        ToolSlimmerConfig.from_mapping({"anthropic": {"tool_search_supported": "yes"}})
+        GizmoConfig.from_mapping({"anthropic": {"tool_search_supported": "yes"}})
 
 
 def test_config_invalid_mode():
     with pytest.raises(ValueError):
-        ToolSlimmerConfig.from_mapping({"mode": "bad"})
+        GizmoConfig.from_mapping({"mode": "bad"})
 
 
 def test_config_accepts_two_pass_mode():
-    cfg = ToolSlimmerConfig.from_mapping({"mode": "two_pass"})
+    cfg = GizmoConfig.from_mapping({"mode": "two_pass"})
     assert cfg.mode == "two_pass"
     assert cfg.two_pass.max_catalog_tools == 120
 
 
 def test_config_invalid_top_k():
     with pytest.raises(ValueError):
-        ToolSlimmerConfig.from_mapping({"top_k": -1})
+        GizmoConfig.from_mapping({"top_k": -1})
 
 
 def test_config_rejects_nan_numeric_fields():
     with pytest.raises(ValueError, match="top_k"):
-        ToolSlimmerConfig.from_mapping({"top_k": float("nan")})
+        GizmoConfig.from_mapping({"top_k": float("nan")})
     with pytest.raises(ValueError, match="min_estimated_reduction_percent"):
-        ToolSlimmerConfig.from_mapping({"min_estimated_reduction_percent": float("nan")})
+        GizmoConfig.from_mapping({"min_estimated_reduction_percent": float("nan")})
 
 
-def test_load_config_reads_tool_slimmer_section(tmp_path):
+def test_load_config_reads_gizmo_section(tmp_path):
     path = tmp_path / "config.yaml"
-    path.write_text(yaml.safe_dump({"tool_slimmer": {"mode": "eager", "top_k": 0}}))
+    path.write_text(yaml.safe_dump({"gizmo": {"mode": "eager", "top_k": 0}}))
     cfg = load_config(path)
     assert cfg.mode == "eager"
     assert cfg.top_k == 0

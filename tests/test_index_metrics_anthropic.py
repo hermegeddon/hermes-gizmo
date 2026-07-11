@@ -1,10 +1,10 @@
 from stat import S_IMODE
 
-from hermes_tool_slimmer.anthropic_tool_search import apply_defer_loading, tool_search_tool
-from hermes_tool_slimmer.config import ToolSlimmerConfig
-from hermes_tool_slimmer.index_store import IndexStore
-from hermes_tool_slimmer.metrics import record_decision, reduction_metrics, schema_bytes, summarize_decisions
-from hermes_tool_slimmer.toolsets import schema_origin
+from hermes_gizmo.anthropic_tool_search import apply_defer_loading, tool_search_tool
+from hermes_gizmo.config import GizmoConfig
+from hermes_gizmo.index_store import IndexStore
+from hermes_gizmo.metrics import record_decision, reduction_metrics, schema_bytes, summarize_decisions
+from hermes_gizmo.toolsets import schema_origin
 
 
 def test_index_store_rebuild_writes_private_index_file(tmp_path):
@@ -20,7 +20,7 @@ def test_decision_log_writes_private_log_and_directory(monkeypatch, tmp_path):
 
     record_decision({"mode": "keyword", "selected": ["read_file"]}, {"session_id": "s1"})
 
-    log_dir = tmp_path / "tool-slimmer"
+    log_dir = tmp_path / "gizmo"
     log_path = log_dir / "decisions.jsonl"
     assert S_IMODE(log_dir.stat().st_mode) == 0o700
     assert S_IMODE(log_path.stat().st_mode) == 0o600
@@ -129,7 +129,7 @@ def test_schema_bytes_tolerates_non_json_values():
 
 def test_summarize_decisions_tolerates_bad_metric_types(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    log = tmp_path / "tool-slimmer" / "decisions.jsonl"
+    log = tmp_path / "gizmo" / "decisions.jsonl"
     log.parent.mkdir()
     log.write_text(
         '{"metrics":{"schema_bytes_before":"bad","schema_bytes_after":"bad","approx_tokens_before":"bad","approx_tokens_after":"bad","selected_tools":"bad","total_tools":"bad","selection_ms":"bad","estimated_reduction_percent":"bad","selected":"not-list"},"context":{}}\n'
@@ -146,7 +146,7 @@ def test_schema_origin_tolerates_null_function_wrapper():
 
 
 def test_anthropic_defer_never_defers_all_tools():
-    cfg = ToolSlimmerConfig(mode="anthropic_tool_search")
+    cfg = GizmoConfig(mode="anthropic_tool_search")
     schemas = [{"name": "a", "toolset": "mcp"}, {"name": "b", "toolset": "mcp"}]
     transformed = apply_defer_loading(schemas, hot_tool_names=[], config=cfg)
     real_tools = [tool for tool in transformed if tool.get("name") != "tool_search_tool_bm25"]
@@ -155,7 +155,7 @@ def test_anthropic_defer_never_defers_all_tools():
 
 
 def test_anthropic_provider_detection_excludes_openrouter_claude():
-    from hermes_tool_slimmer.anthropic_tool_search import supports_anthropic_tool_search
+    from hermes_gizmo.anthropic_tool_search import supports_anthropic_tool_search
 
     assert supports_anthropic_tool_search("anthropic", "claude-sonnet") is True
     assert supports_anthropic_tool_search("openrouter", "anthropic/claude-sonnet") is False
@@ -164,7 +164,7 @@ def test_anthropic_provider_detection_excludes_openrouter_claude():
 
 
 def test_anthropic_defer_treats_mcp_prefix_as_mcp():
-    cfg = ToolSlimmerConfig(mode="anthropic_tool_search")
+    cfg = GizmoConfig(mode="anthropic_tool_search")
     schemas = [{"name": "hot"}, {"name": "issue_read", "toolset": "mcp:github"}]
     transformed = apply_defer_loading(schemas, hot_tool_names=["hot"], config=cfg)
     issue = next(tool for tool in transformed if tool.get("name") == "issue_read")
@@ -172,7 +172,7 @@ def test_anthropic_defer_treats_mcp_prefix_as_mcp():
 
 
 def test_anthropic_defer_treats_mcp_server_metadata_as_mcp():
-    cfg = ToolSlimmerConfig(mode="anthropic_tool_search")
+    cfg = GizmoConfig(mode="anthropic_tool_search")
     schemas = [{"name": "hot"}, {"name": "issue_read", "mcp_server": "github"}]
     transformed = apply_defer_loading(schemas, hot_tool_names=["hot"], config=cfg)
     issue = next(tool for tool in transformed if tool.get("name") == "issue_read")

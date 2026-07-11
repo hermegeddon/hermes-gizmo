@@ -1,8 +1,8 @@
 # Privacy And Logging
 
-Hermes Tool Slimmer does not write raw user prompts to its decision log.
+Hermes Gizmo does not write raw user prompts to its decision log.
 
-Decision events are stored at `$HERMES_HOME/tool-slimmer/decisions.jsonl` when `tool_slimmer.log_decisions: true`. Each event has three top-level fields:
+Decision events are stored at `$HERMES_HOME/gizmo/decisions.jsonl` when `gizmo.log_decisions: true`. Each event has three top-level fields:
 
 - `timestamp`
 - `metrics`
@@ -17,5 +17,5 @@ Dashboard headline totals exclude probe/test events without a `session_id`. Full
 Run this for the exact field inventory in the installed version:
 
 ```bash
-hermes tool-slimmer privacy
+hermes gizmo privacy
 ```

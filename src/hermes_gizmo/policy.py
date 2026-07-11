@@ -1,9 +1,32 @@
-"""Compatibility alias for :mod:`hermes_tool_slimmer.policy`."""
-
 from __future__ import annotations
 
-from importlib import import_module as _import_module
-import sys as _sys
+import logging
+from typing import Iterable
 
-_legacy_module = _import_module("hermes_tool_slimmer.policy")
-_sys.modules[__name__] = _legacy_module
+from .config import GizmoConfig
+from .corpus import tool_name, tool_toolset
+from .toolsets import is_mcp_schema
+from .types import Schema
+
+LOG = logging.getLogger(__name__)
+
+
+def eligible_schemas(schemas: Iterable[Schema], cfg: GizmoConfig) -> list[Schema]:
+    disabled = set(cfg.disabled_tools)
+    disabled_toolsets = set(cfg.disabled_toolsets)
+    out: list[Schema] = []
+    for schema in schemas:
+        if not isinstance(schema, dict):
+            LOG.warning("skipping non-dict tool schema: type=%s", type(schema).__name__)
+            continue
+        name = tool_name(schema)
+        toolset = tool_toolset(schema)
+        if name in disabled or (toolset and toolset in disabled_toolsets):
+            continue
+        is_mcp = is_mcp_schema(schema)
+        if is_mcp and not cfg.include_mcp_tools:
+            continue
+        if not is_mcp and not cfg.include_native_tools:
+            continue
+        out.append(schema)
+    return out

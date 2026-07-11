@@ -1,6 +1,6 @@
 # Quickstart — Hermes Gizmo
 
-Hermes Gizmo is an experimental Hermes Agent plugin based on upstream Hermes Tool Slimmer. This quickstart uses the public Hermes Gizmo checkout while preserving legacy `tool-slimmer` commands and config keys for compatibility.
+Hermes Gizmo is an experimental Hermes Agent plugin for deterministic tool-schema selection. This quickstart uses only the canonical Gizmo package, plugin, command, and config names.
 
 ## Prerequisites
 
@@ -31,14 +31,14 @@ The installer handles the Python package, dashboard files, Hermes plugin enablem
 If it finishes successfully, run:
 
 ```bash
-hermes tool-slimmer doctor
+hermes gizmo doctor
 ```
 
 All checks should pass. If the dashboard is running, the Hermes Gizmo tab should appear after the dashboard service restarts.
 
 ### Updating Hermes Gizmo Later
 
-The installer installs the version in the local checkout you run it from. If an agent previously downloaded an old copy into `/tmp/hermes-tool-slimmer` or `/tmp/hermes-gizmo`, rerunning that old checkout will reinstall the old version.
+The installer installs the version in the local checkout you run it from. If an agent previously downloaded an old copy into `/tmp/hermes-gizmo`, rerunning that old checkout will reinstall the old version.
 
 Use a durable checkout under your home directory and update it before reinstalling:
 
@@ -53,7 +53,7 @@ else
 fi
 
 HERMES_BIN="$HOME/.hermes/hermes-agent/venv/bin/hermes" bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
-$HOME/.hermes/hermes-agent/venv/bin/hermes tool-slimmer doctor
+$HOME/.hermes/hermes-agent/venv/bin/hermes gizmo doctor
 ```
 
 If the Hermes dashboard **Plugins** page shows Hermes Gizmo as `Source: git`, use the dashboard **Git pull** / **Update** action, then restart the gateway. If it shows `Source: user`, use the terminal update path above.
@@ -94,7 +94,7 @@ HERMES_BIN="$HOME/.hermes/hermes-agent/venv/bin/hermes" bash "$HOME/hermes-gizmo
 
 The source-checkout launcher may use system Python and fail to import packages installed into the Hermes venv.
 
-If the approval layer asks what this command does, the answer is: installs the Python package into the Hermes virtual environment, copies the dashboard plugin into `~/.hermes/plugins/tool-slimmer`, enables the plugin, applies the Hermes selector-hook patch when needed, restarts Hermes dashboard/gateway services when present, and runs `doctor`.
+If the approval layer asks what this command does, the answer is: installs the Python package into the Hermes virtual environment, copies the dashboard plugin into `~/.hermes/plugins/gizmo`, enables the plugin, applies the Hermes selector-hook patch when needed, restarts Hermes dashboard/gateway services when present, and runs `doctor`.
 
 ### If Hermes Agent is installing it for you
 
@@ -105,12 +105,12 @@ Install Hermes Gizmo from https://github.com/rzyns/hermes-gizmo.
 Use $HOME/hermes-gizmo as the checkout path.
 If $HOME/hermes-gizmo already exists and is a git checkout, run git pull --ff-only there first.
 If it does not exist, clone https://github.com/rzyns/hermes-gizmo.git there.
-Do not use an old `/tmp/hermes-tool-slimmer` or `/tmp/hermes-gizmo` checkout.
+Do not use an old `/tmp/hermes-gizmo` checkout.
 Then run:
 HERMES_BIN="$HOME/.hermes/hermes-agent/venv/bin/hermes" bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
 If the environment asks for approval to run that script, request approval for that exact command.
 Then verify with:
-$HOME/.hermes/hermes-agent/venv/bin/hermes tool-slimmer doctor
+$HOME/.hermes/hermes-agent/venv/bin/hermes gizmo doctor
 ```
 
 If Hermes Agent says it downloaded or unpacked the repo but installation is not complete, first confirm it used `$HOME/hermes-gizmo` and updated that checkout, then run the `bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"` command above.
@@ -121,9 +121,9 @@ Create `$HERMES_HOME/config.yaml`:
 ```yaml
 plugins:
   enabled:
-    - tool-slimmer
+    - gizmo
 
-tool_slimmer:
+gizmo:
   enabled: true
   mode: keyword
   top_k: 8
@@ -152,15 +152,15 @@ Start with `dry_run: true`. This lets you inspect selections without changing pr
 | `eager` | Sends full catalog; useful for debugging. |
 | `anthropic_tool_search` | Only for Anthropic native provider with Tool Search support. |
 
-Experimental `mode: two_pass` is for large catalogs or TPM-capped providers. The first request gets only always-included tools plus `tool_slimmer_hydrate_tools`, whose schema contains a compact deterministic catalog. If the model needs tools, it asks for multiple full schemas in one hydration batch and the next request exposes only those schemas. Start with `keyword`; switch to `two_pass` only when the extra round trip is worth the schema savings.
+Experimental `mode: two_pass` is for large catalogs or TPM-capped providers. The first request gets only always-included tools plus `gizmo_hydrate_tools`, whose schema contains a compact deterministic catalog. If the model needs tools, it asks for multiple full schemas in one hydration batch and the next request exposes only those schemas. Start with `keyword`; switch to `two_pass` only when the extra round trip is worth the schema savings.
 
 ## 3. Check installation
 
 ```bash
-hermes tool-slimmer doctor
-hermes tool-slimmer status
-hermes tool-slimmer privacy
-hermes tool-slimmer diagnostics
+hermes gizmo doctor
+hermes gizmo status
+hermes gizmo privacy
+hermes gizmo diagnostics
 scripts/troubleshoot-hermes-gizmo.sh
 ```
 
@@ -178,7 +178,7 @@ If `core_selector_hook` shows `warn`, your Hermes core does not advertise `selec
 ## 4. Preview selection
 
 ```bash
-hermes tool-slimmer select "search this repo for MCP registration code" --schemas examples/tools.yaml
+hermes gizmo select "search this repo for MCP registration code" --schemas examples/tools.yaml
 ```
 
 ## 5. Enable active schema slimming
@@ -188,14 +188,14 @@ Set `dry_run: false` only after `doctor` reports a Hermes core selector hook and
 ## 6. Run the benchmark report
 
 ```bash
-hermes tool-slimmer eval --prompts examples/prompts.yaml --schemas examples/tools.yaml --markdown
+hermes gizmo eval --prompts examples/prompts.yaml --schemas examples/tools.yaml --markdown
 ```
 
 For a full mode comparison (keyword vs hybrid vs semantic_hybrid), see [`docs/gizmo-eval-report.md`](docs/gizmo-eval-report.md).
 
 ## Non-authorizations
 
-- No upstream PR submission to `alias8818/hermes-tool-slimmer` without separate approval.
+- No publishing changes outside the Hermes Gizmo repository without separate approval.
 - No package-registry publish from these quickstart instructions.
 - No default Hermes profile install/enablement unless explicitly intended.
 - No gateway restart unless explicitly approved.

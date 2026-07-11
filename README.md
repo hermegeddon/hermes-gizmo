@@ -1,6 +1,6 @@
 # Hermes Gizmo
 
-> **Community preview**: Hermes Gizmo is an experimental Hermes Agent plugin, published for community review and local operator testing. It is derived from upstream [`alias8818/hermes-tool-slimmer`](https://github.com/alias8818/hermes-tool-slimmer), remains MIT licensed, and preserves legacy `tool-slimmer` compatibility while the public project name moves to Hermes Gizmo. See [`NOTICE`](NOTICE) for attribution and license-preservation notes.
+> **Community preview**: Hermes Gizmo is an experimental Hermes Agent plugin, published for community review and local operator testing. It remains MIT licensed; see [`NOTICE`](NOTICE) for upstream attribution and license-preservation notes.
 >
 > - Compatibility guide: [`docs/gizmo-compatibility.md`](docs/gizmo-compatibility.md)
 > - Selector mode comparison: [`docs/gizmo-eval-report.md`](docs/gizmo-eval-report.md)
@@ -11,7 +11,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Hermes](https://img.shields.io/badge/Hermes-dashboard%20plugin-111827)
 
-![Hermes Gizmo dashboard](docs/assets/tool-slimmer-dashboard.png)
+![Hermes Gizmo dashboard](docs/assets/gizmo-dashboard.png)
 
 Hermes Gizmo reduces repeated tool-schema overhead by selecting the smallest useful tool set for a turn. It builds an indexable corpus from Hermes tool schemas, ranks candidate tools with local BM25 plus explicit boosts, and fails open to the original schema list when anything goes wrong.
 
@@ -47,9 +47,7 @@ Dashboard headline totals count real Hermes session events by default. Probe eve
 
 ### Community preview quickstart
 
-For first-time testing, use a durable local checkout and start with an isolated Hermes profile. The plugin still supports the legacy `tool-slimmer` package, command, config, state, and dashboard paths for compatibility while the public project name moves to Hermes Gizmo.
-
-**Package name note:** the Python distribution is still named `hermes-tool-slimmer` for compatibility with existing installs, entry points, and Hermes plugin discovery. The canonical public project and repository name is Hermes Gizmo; use the `hermes-gizmo` console command or the legacy `hermes-tool-slimmer` command interchangeably during this compatibility window.
+For first-time testing, use a durable local checkout and start with an isolated Hermes profile. The canonical Python distribution and import namespace are `hermes-gizmo` and `hermes_gizmo`; the Hermes plugin, command, config section, state directory, dashboard route, and toolset are all named `gizmo`.
 
 1. Activate the target Hermes profile:
    ```bash
@@ -67,9 +65,9 @@ For first-time testing, use a durable local checkout and start with an isolated 
    ```yaml
    plugins:
      enabled:
-       - tool-slimmer
+       - gizmo
 
-   tool_slimmer:
+   gizmo:
      enabled: true
      mode: keyword
      top_k: 8
@@ -77,7 +75,7 @@ For first-time testing, use a durable local checkout and start with an isolated 
    ```
 4. Verify:
    ```bash
-   hermes tool-slimmer doctor
+   hermes gizmo doctor
    ```
 
 For isolated-profile constraints, selector hook wiring, and non-authorizations, see [`docs/gizmo-compatibility.md`](docs/gizmo-compatibility.md).
@@ -95,7 +93,7 @@ On Hermes builds with dashboard plugin repair support, you can install from the 
 rzyns/hermes-gizmo
 ```
 
-That path clones the repo to `~/.hermes/plugins/tool-slimmer`, runs the same deterministic repair installer with `--no-restart`, and preserves the git checkout so the dashboard **Update** button can use `git pull` later. Restart the gateway after dashboard install or update so active schema slimming uses the patched selector hook.
+That path clones the repo to `~/.hermes/plugins/gizmo`, runs the same deterministic repair installer with `--no-restart`, and preserves the git checkout so the dashboard **Update** button can use `git pull` later. Restart the gateway after dashboard install or update so active schema slimming uses the patched selector hook.
 
 From a terminal on the machine that runs Hermes:
 
@@ -116,7 +114,7 @@ That handles the package install, dashboard plugin copy, Hermes plugin enablemen
 Verify it worked:
 
 ```bash
-hermes tool-slimmer doctor
+hermes gizmo doctor
 ```
 
 To update an existing terminal install, update the local checkout first, then rerun the installer:
@@ -134,7 +132,7 @@ fi
 HERMES_BIN="$HOME/.hermes/hermes-agent/venv/bin/hermes" bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
 ```
 
-The installer installs the version in the checkout you run it from. If you rerun an old checkout, for example an old `/tmp/hermes-tool-slimmer` folder created by an agent, it will reinstall that old version.
+The installer installs the version in the checkout you run it from. If you rerun an old checkout, for example an old `/tmp/hermes-gizmo` folder created by an agent, it will reinstall that old version.
 
 When updating Hermes later, use the bundled update-and-repair helper:
 
@@ -173,12 +171,12 @@ If Hermes Agent is doing the install for you, give it this instruction:
 ```text
 Install Hermes Gizmo from https://github.com/rzyns/hermes-gizmo.
 Use $HOME/hermes-gizmo as the checkout path. If it already exists and is a git checkout, run git pull --ff-only there first. If it does not exist, clone the repo there.
-Do not use an old `/tmp/hermes-tool-slimmer` or `/tmp/hermes-gizmo` checkout.
+Do not use an old `/tmp/hermes-gizmo` checkout.
 Then run:
 HERMES_BIN="$HOME/.hermes/hermes-agent/venv/bin/hermes" bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
 If the environment asks for approval to run that script, request approval for that exact command.
 Then verify with:
-$HOME/.hermes/hermes-agent/venv/bin/hermes tool-slimmer doctor
+$HOME/.hermes/hermes-agent/venv/bin/hermes gizmo doctor
 ```
 
 For a guided setup, see [`docs/guided-setup.md`](docs/guided-setup.md) and [`docs/quickstart.md`](docs/quickstart.md). For the Hermes dashboard page, see [`docs/dashboard-plugin.md`](docs/dashboard-plugin.md).
@@ -204,7 +202,7 @@ The repository ships focused unit and integration tests for selector behavior, c
 
 ```bash
 ruff check .
-python -m compileall -q src tests dashboard-plugin/tool-slimmer dashboard-plugin/gizmo
+python -m compileall -q src tests dashboard-plugin/gizmo
 pytest -q
 ```
 
@@ -213,9 +211,9 @@ pytest -q
 ```yaml
 plugins:
   enabled:
-    - tool-slimmer
+    - gizmo
 
-tool_slimmer:
+gizmo:
   enabled: true
   mode: keyword        # eager | keyword | hybrid | anthropic_tool_search | two_pass
   top_k: 8             # selected after always_include
@@ -238,11 +236,11 @@ tool_slimmer:
   profiles:
     telegram:
       top_k: 4
-      always_include: [memory, tool_slimmer_request_full_tools]
+      always_include: [memory, gizmo_request_full_tools]
       always_exclude: [terminal, cronjob]
     slack:
       top_k: 6
-      always_include: [memory, read_file, search_files, tool_slimmer_request_full_tools]
+      always_include: [memory, read_file, search_files, gizmo_request_full_tools]
       always_exclude: [cronjob]
     cli:
       top_k: 8
@@ -254,37 +252,37 @@ tool_slimmer:
 
 `mode: two_pass` is opt-in and experimental. It is intended for very large tool catalogs, text-first gateways, or TPM-capped providers where even a keyword-trimmed full-schema set is too expensive.
 
-In two-pass mode, the first request receives your `always_include` tools plus `tool_slimmer_hydrate_tools`. That hydration tool carries a compact deterministic catalog of available tool names, one-line descriptions, toolsets, and tags. If the model needs tools, it calls `tool_slimmer_hydrate_tools` with multiple names in one batch; the next request exposes those full schemas and caches them for the session when `cache_hydrated_tools: true`.
+In two-pass mode, the first request receives your `always_include` tools plus `gizmo_hydrate_tools`. That hydration tool carries a compact deterministic catalog of available tool names, one-line descriptions, toolsets, and tags. If the model needs tools, it calls `gizmo_hydrate_tools` with multiple names in one batch; the next request exposes those full schemas and caches them for the session when `cache_hydrated_tools: true`.
 
 Keep `keyword` as the default for normal use. Two-pass can add one extra model round trip before tool use, and current Hermes history may still record the compact hydration tool call. It avoids external delegation and avoids injecting the full catalog on ordinary no-tool turns.
 
 ## Commands
 
 ```bash
-hermes tool-slimmer status
-hermes tool-slimmer doctor
-hermes tool-slimmer index rebuild --schemas examples/tools.yaml
-hermes tool-slimmer index show --top 20
-hermes tool-slimmer select "search this repo for MCP registration code" --schemas tools.yaml
-hermes tool-slimmer benchmark --prompts examples/prompts.yaml --schemas examples/tools.yaml
-hermes tool-slimmer eval --prompts examples/prompts.yaml --schemas examples/tools.yaml
-hermes tool-slimmer eval --prompts examples/prompts.yaml --schemas examples/tools.yaml --markdown
-hermes tool-slimmer analyze-config
-hermes tool-slimmer advisor
-hermes tool-slimmer advisor --apply
-hermes tool-slimmer advisor --rollback ~/.hermes/tool-slimmer/backups/config-YYYYmmdd-HHMMSS.yaml
-hermes tool-slimmer privacy
-hermes tool-slimmer diagnostics
-hermes tool-slimmer recommend-config
+hermes gizmo status
+hermes gizmo doctor
+hermes gizmo index rebuild --schemas examples/tools.yaml
+hermes gizmo index show --top 20
+hermes gizmo select "search this repo for MCP registration code" --schemas tools.yaml
+hermes gizmo benchmark --prompts examples/prompts.yaml --schemas examples/tools.yaml
+hermes gizmo eval --prompts examples/prompts.yaml --schemas examples/tools.yaml
+hermes gizmo eval --prompts examples/prompts.yaml --schemas examples/tools.yaml --markdown
+hermes gizmo analyze-config
+hermes gizmo advisor
+hermes gizmo advisor --apply
+hermes gizmo advisor --rollback ~/.hermes/gizmo/backups/config-YYYYmmdd-HHMMSS.yaml
+hermes gizmo privacy
+hermes gizmo diagnostics
+hermes gizmo recommend-config
 ```
 
 Slash commands:
 
 ```text
-/tool-slimmer status
-/tool-slimmer select search this repo for MCP registration code
-/tool-slimmer dry-run on
-/tool-slimmer dry-run off
+/gizmo status
+/gizmo select search this repo for MCP registration code
+/gizmo dry-run on
+/gizmo dry-run off
 ```
 
 ## Provider behavior
@@ -311,7 +309,7 @@ If none exists, active schema slimming requires the installer/core patch to add 
 
 - `always_include` tools are selected first when present and not already disabled by Hermes.
 - `always_exclude` is a user-facing alias for `disabled_tools`. Use it when a tool is too noisy for a deployment and should only appear through Hermes outside Hermes Gizmo's ranked set.
-- `tool_slimmer_request_full_tools` is always kept available when Hermes has registered it. If a skill or task needs a hidden tool, the model can call it to make the next provider request use the full schema list instead of inventing a substitute workflow.
+- `gizmo_request_full_tools` is always kept available when Hermes has registered it. If a skill or task needs a hidden tool, the model can call it to make the next provider request use the full schema list instead of inventing a substitute workflow.
 - `top_k` applies after `always_include`; always-included tools do not count against the `top_k` budget. `top_k: 0` is treated as an explicit request to select no ranked tools, so it does not fail open to the full catalog.
 - `disabled_tools`, `disabled_toolsets`, `include_mcp_tools`, and `include_native_tools` are respected before ranking.
 - `profiles` let Slack, Telegram, CLI, cron, and webhook entry points use different `top_k`, include, and exclude lists without making every user interface share the same tradeoff.
@@ -325,7 +323,7 @@ Keyword mode is intentionally mostly literal. It includes a small deterministic 
 - `aliases` extends keyword query expansion deterministically; aliases affect ranking and score details but do not rewrite stored tool schemas.
 - `hybrid` mode keeps BM25 ranking and adds a deterministic fuzzy-token boost for close spelling/wording misses.
 - For most installs, start with `mode: keyword` and `top_k: 8`. Lower values such as `top_k: 4` can work for narrow Telegram/webhook deployments, but they raise tool-miss risk unless paired with explicit `always_include` and `always_exclude` choices.
-- The standalone `tool_slimmer_select` tool uses provided schemas first, live Hermes tool definitions second, and the persisted index as a final fallback.
+- The standalone `gizmo_select` tool uses provided schemas first, live Hermes tool definitions second, and the persisted index as a final fallback.
 - `dry_run: true` logs decisions and returns `None` to preserve original behavior.
 - Anthropic Tool Search helpers never defer every tool.
 
@@ -339,8 +337,8 @@ Keyword mode is intentionally mostly literal. It includes a small deterministic 
 - [`docs/privacy.md`](docs/privacy.md): decision log field inventory and privacy notes.
 - [`docs/reports/latest-eval.md`](docs/reports/latest-eval.md): reproducible example evaluation report.
 - [`docs/troubleshooting.md`](docs/troubleshooting.md): common operational issues.
-- [`docs/gizmo-compatibility.md`](docs/gizmo-compatibility.md): **Hermes Gizmo fork** compatibility, selector hook wiring, isolated-profile install, and non-authorizations.
-- [`docs/gizmo-eval-report.md`](docs/gizmo-eval-report.md): **Hermes Gizmo fork** benchmark report comparing keyword / hybrid / semantic_hybrid.
+- [`docs/gizmo-compatibility.md`](docs/gizmo-compatibility.md): **Hermes Gizmo** compatibility, selector hook wiring, isolated-profile install, and non-authorizations.
+- [`docs/gizmo-eval-report.md`](docs/gizmo-eval-report.md): **Hermes Gizmo** benchmark report comparing keyword / hybrid / semantic_hybrid.
 - [`examples/`](examples/): sample config, prompts, schemas, and expected output.
 
 ## Release validation
@@ -350,7 +348,7 @@ This repository is release-ready only when these checks pass:
 ```bash
 ruff check .
 mypy src tests
-python -m compileall -q src tests dashboard-plugin/tool-slimmer dashboard-plugin/gizmo
+python -m compileall -q src tests dashboard-plugin/gizmo
 pytest -q
 python -m build
 scripts/check-wheel-assets.sh

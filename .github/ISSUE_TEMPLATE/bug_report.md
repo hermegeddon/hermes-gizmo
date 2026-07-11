@@ -34,8 +34,8 @@ labels: ["bug", "needs-triage"]
 Please include sanitized output from one or more of:
 
 ```bash
-hermes tool-slimmer doctor
-hermes tool-slimmer diagnostics
+hermes gizmo doctor
+hermes gizmo diagnostics
 scripts/troubleshoot-hermes-gizmo.sh --quick
 ```
 

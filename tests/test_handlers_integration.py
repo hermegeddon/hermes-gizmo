@@ -11,22 +11,22 @@ from stat import S_IMODE
 import pytest
 import yaml
 
-import hermes_tool_slimmer
-from hermes_tool_slimmer.advisor import apply_recommended_config, apply_tool_preference, analyze_config, backup_config, rollback_config
-from hermes_tool_slimmer.commands import handle_slash_command
-from hermes_tool_slimmer.config import ToolSlimmerConfig
-from hermes_tool_slimmer.cli import _load_prompts, _load_schemas, _tool_names, diagnostic_report
-from hermes_tool_slimmer.integration import FALLBACK_INSTRUCTION, maybe_register_selector_hook, pre_llm_diagnostic_hook, select_tool_schemas_callback
-from hermes_tool_slimmer.metrics import read_decisions, summarize_decisions
-from hermes_tool_slimmer.index_store import IndexStore
-from hermes_tool_slimmer.tools import FULL_TOOLS_REQUEST_MARKER, _live_hermes_schemas, tool_slimmer_hydrate_tools, tool_slimmer_request_full_tools, tool_slimmer_select, tool_slimmer_status
-from hermes_tool_slimmer.two_pass import HYDRATE_REQUEST_MARKER
+import hermes_gizmo
+from hermes_gizmo.advisor import apply_recommended_config, apply_tool_preference, analyze_config, backup_config, rollback_config
+from hermes_gizmo.commands import handle_slash_command
+from hermes_gizmo.config import GizmoConfig
+from hermes_gizmo.cli import _load_prompts, _load_schemas, _tool_names, diagnostic_report
+from hermes_gizmo.integration import FALLBACK_INSTRUCTION, maybe_register_selector_hook, pre_llm_diagnostic_hook, select_tool_schemas_callback
+from hermes_gizmo.metrics import read_decisions, summarize_decisions
+from hermes_gizmo.index_store import IndexStore
+from hermes_gizmo.tools import FULL_TOOLS_REQUEST_MARKER, _live_hermes_schemas, gizmo_hydrate_tools, gizmo_request_full_tools, gizmo_select, gizmo_status
+from hermes_gizmo.two_pass import HYDRATE_REQUEST_MARKER
 
 
 def _patch_dashboard_modules(module, monkeypatch):
-    from hermes_tool_slimmer.cli import eval_markdown, eval_prompts, privacy_inventory, run_doctor
-    from hermes_tool_slimmer.config import load_config
-    from hermes_tool_slimmer.metrics import read_decisions, summarize_decisions
+    from hermes_gizmo.cli import eval_markdown, eval_prompts, privacy_inventory, run_doctor
+    from hermes_gizmo.config import load_config
+    from hermes_gizmo.metrics import read_decisions, summarize_decisions
 
     monkeypatch.setattr(
         module,
@@ -66,23 +66,23 @@ def test_plugin_register_wires_tools_commands_and_hooks(monkeypatch):
         def register_hook(self, name, callback):
             calls.append(("hook", name))
 
-    hermes_tool_slimmer.register(Ctx())
+    hermes_gizmo.register(Ctx())
 
-    assert ("tool", "tool_slimmer_status") in calls
-    assert ("tool", "tool_slimmer_select") in calls
-    assert ("tool", "tool_slimmer_request_full_tools") in calls
-    assert ("tool", "tool_slimmer_hydrate_tools") in calls
-    assert ("command", "tool-slimmer") in calls
-    assert ("cli", "tool-slimmer") in calls
+    assert ("tool", "gizmo_status") in calls
+    assert ("tool", "gizmo_select") in calls
+    assert ("tool", "gizmo_request_full_tools") in calls
+    assert ("tool", "gizmo_hydrate_tools") in calls
+    assert ("command", "gizmo") in calls
+    assert ("cli", "gizmo") in calls
     assert ("hook", "select_tool_schemas") in calls
 
 
 def test_plugin_handlers_return_json_strings(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    status = tool_slimmer_status({})
-    select = tool_slimmer_select({"query": "read", "schemas": [{"name": "read_file", "description": "Read"}]})
-    request_full = tool_slimmer_request_full_tools({"reason": "missing skill tool"})
-    hydrate = tool_slimmer_hydrate_tools({"tools": ["web_search"], "reason": "need web"})
+    status = gizmo_status({})
+    select = gizmo_select({"query": "read", "schemas": [{"name": "read_file", "description": "Read"}]})
+    request_full = gizmo_request_full_tools({"reason": "missing skill tool"})
+    hydrate = gizmo_hydrate_tools({"tools": ["web_search"], "reason": "need web"})
     slash = handle_slash_command("select read", schemas=[{"name": "read_file", "description": "Read"}])
     assert json.loads(status)["ok"] is True
     assert json.loads(select)["ok"] is True
@@ -105,15 +105,15 @@ def test_slash_command_status_dry_run_unknown_and_exception(monkeypatch, tmp_pat
     def boom(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("hermes_tool_slimmer.commands.tool_slimmer_status", boom)
+    monkeypatch.setattr("hermes_gizmo.commands.gizmo_status", boom)
     failed = json.loads(handle_slash_command("status"))
     assert failed == {"error": "boom", "ok": False}
 
 
-def test_tool_slimmer_select_rejects_eager_mode_override(monkeypatch, tmp_path):
+def test_gizmo_select_rejects_eager_mode_override(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     result = json.loads(
-        tool_slimmer_select(
+        gizmo_select(
             {
                 "query": "search",
                 "mode": "eager",
@@ -129,9 +129,9 @@ def test_tool_slimmer_select_rejects_eager_mode_override(monkeypatch, tmp_path):
     assert result["error"] == "mode_not_allowed"
 
 
-def test_tool_slimmer_select_falls_back_to_index_when_schemas_missing(monkeypatch, tmp_path):
+def test_gizmo_select_falls_back_to_index_when_schemas_missing(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setattr("hermes_tool_slimmer.tools._live_hermes_schemas", lambda: [])
+    monkeypatch.setattr("hermes_gizmo.tools._live_hermes_schemas", lambda: [])
     IndexStore().rebuild(
         [
             {"name": "execute_code", "description": "Run python scripts and execute code"},
@@ -139,7 +139,7 @@ def test_tool_slimmer_select_falls_back_to_index_when_schemas_missing(monkeypatc
         ]
     )
 
-    result = json.loads(tool_slimmer_select({"query": "run a python script", "mode": "keyword", "allow_catalog_fallback": True}))
+    result = json.loads(gizmo_select({"query": "run a python script", "mode": "keyword", "allow_catalog_fallback": True}))
 
     assert result["ok"] is True
     assert result["schema_source"] == "index"
@@ -147,32 +147,32 @@ def test_tool_slimmer_select_falls_back_to_index_when_schemas_missing(monkeypatc
     assert result["selected"][0] == "execute_code"
 
 
-def test_tool_slimmer_select_reports_no_schemas_when_all_sources_empty(monkeypatch, tmp_path):
+def test_gizmo_select_reports_no_schemas_when_all_sources_empty(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setattr("hermes_tool_slimmer.tools._live_hermes_schemas", lambda: [])
-    result = json.loads(tool_slimmer_select({"query": "search"}))
+    monkeypatch.setattr("hermes_gizmo.tools._live_hermes_schemas", lambda: [])
+    result = json.loads(gizmo_select({"query": "search"}))
 
     assert result["ok"] is False
     assert result["error"] == "no_schemas_available"
     assert result["schema_source"] == "none"
 
 
-def test_tool_slimmer_select_does_not_read_catalog_without_explicit_opt_in(monkeypatch, tmp_path):
+def test_gizmo_select_does_not_read_catalog_without_explicit_opt_in(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setattr("hermes_tool_slimmer.tools._live_hermes_schemas", lambda: [{"name": "live_tool", "description": "Live"}])
+    monkeypatch.setattr("hermes_gizmo.tools._live_hermes_schemas", lambda: [{"name": "live_tool", "description": "Live"}])
     IndexStore().rebuild([{"name": "indexed_tool", "description": "Indexed"}])
 
-    result = json.loads(tool_slimmer_select({"query": "live indexed", "mode": "keyword"}))
+    result = json.loads(gizmo_select({"query": "live indexed", "mode": "keyword"}))
 
     assert result["ok"] is False
     assert result["error"] == "no_schemas_available"
     assert result["schema_source"] == "none"
 
 
-def test_tool_slimmer_status_handles_bad_config(monkeypatch, tmp_path):
+def test_gizmo_status_handles_bad_config(monkeypatch, tmp_path):
     path = tmp_path / "config.yaml"
-    path.write_text("tool_slimmer:\n  top_k: -1\n")
-    result = json.loads(tool_slimmer_status({"config_path": str(path)}))
+    path.write_text("gizmo:\n  top_k: -1\n")
+    result = json.loads(gizmo_status({"config_path": str(path)}))
 
     assert result["ok"] is False
     assert "top_k" in result["error"]
@@ -198,7 +198,7 @@ def test_live_hermes_schemas_typeerror_fallback_and_bad_payload(monkeypatch):
     assert _live_hermes_schemas() == []
 
 
-def test_tool_slimmer_select_prefers_runtime_live_schemas_before_snapshot(monkeypatch, tmp_path):
+def test_gizmo_select_prefers_runtime_live_schemas_before_snapshot(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     IndexStore().rebuild([{"name": "indexed_tool", "description": "Indexed"}])
     snapshot_schemas = [{"name": "snapshot_tool", "description": "Snapshot"}, *[{"name": f"extra_{idx}"} for idx in range(19)]]
@@ -207,7 +207,7 @@ def test_tool_slimmer_select_prefers_runtime_live_schemas_before_snapshot(monkey
     module.get_tool_definitions = lambda *args: [{"name": "runtime_tool", "description": "Runtime"}]
     monkeypatch.setitem(sys.modules, "model_tools", module)
 
-    result = json.loads(tool_slimmer_select({"query": "runtime", "mode": "keyword", "allow_catalog_fallback": True}))
+    result = json.loads(gizmo_select({"query": "runtime", "mode": "keyword", "allow_catalog_fallback": True}))
 
     assert result["ok"] is True
     assert result["schema_source"] == "live"
@@ -223,7 +223,7 @@ def test_select_tool_schemas_injects_recovery_tools_for_acp_filtered_catalog(mon
         {"name": "patch", "description": "Patch files"},
         {"name": "search_files", "description": "Search files"},
     ]
-    cfg = ToolSlimmerConfig(dry_run=False, top_k=0)
+    cfg = GizmoConfig(dry_run=False, top_k=0)
 
     selected = select_tool_schemas_callback(
         "hello",
@@ -236,11 +236,11 @@ def test_select_tool_schemas_injects_recovery_tools_for_acp_filtered_catalog(mon
     )
 
     names = _tool_names(selected)
-    assert "tool_slimmer_request_full_tools" in names
-    assert "tool_slimmer_tool_search" in names
-    assert "tool_slimmer_tool_details" in names
-    assert "tool_slimmer_loaded_tools" in names
-    assert "tool_slimmer_hydrate_tools" in names
+    assert "gizmo_request_full_tools" in names
+    assert "gizmo_tool_search" in names
+    assert "gizmo_tool_details" in names
+    assert "gizmo_loaded_tools" in names
+    assert "gizmo_hydrate_tools" in names
 
 
 def test_cli_tool_names_tolerates_null_function_wrapper():
@@ -291,7 +291,7 @@ def test_cli_loaders_handle_malformed_yaml_and_scalar_payloads(tmp_path):
 
 def test_cli_analyze_config_and_eval(tmp_path, capsys):
     from argparse import Namespace
-    from hermes_tool_slimmer.cli import handle_cli
+    from hermes_gizmo.cli import handle_cli
 
     schemas = tmp_path / "schemas.yaml"
     prompts = tmp_path / "prompts.yaml"
@@ -302,7 +302,7 @@ def test_cli_analyze_config_and_eval(tmp_path, capsys):
     out = json.loads(capsys.readouterr().out)
     assert out["summary"]["hit_rate"] == 1.0
     assert handle_cli(Namespace(command="eval", config=None, schemas=str(schemas), prompts=str(prompts), markdown=True)) == 0
-    assert "# Tool Slimmer Eval Report" in capsys.readouterr().out
+    assert "# Gizmo Eval Report" in capsys.readouterr().out
     assert handle_cli(Namespace(command="analyze-config", config=None)) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["ok"] is True
@@ -314,7 +314,7 @@ def test_cli_analyze_config_and_eval(tmp_path, capsys):
 
 
 def test_advisor_cronjob_warning_respects_telegram_profile_exclude():
-    cfg = ToolSlimmerConfig(
+    cfg = GizmoConfig(
         profiles={"telegram": {"always_exclude": ["cronjob"]}},
     )
     summary = {
@@ -330,21 +330,21 @@ def test_advisor_cronjob_warning_respects_telegram_profile_exclude():
 
 def test_backup_config_uses_unique_paths_for_rapid_successive_backups(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("tool_slimmer:\n  top_k: 8\n")
+    config_path.write_text("gizmo:\n  top_k: 8\n")
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
     first = backup_config(config_path)
-    config_path.write_text("tool_slimmer:\n  top_k: 6\n")
+    config_path.write_text("gizmo:\n  top_k: 6\n")
     second = backup_config(config_path)
 
     assert first != second
-    assert yaml.safe_load(first.read_text())["tool_slimmer"]["top_k"] == 8
-    assert yaml.safe_load(second.read_text())["tool_slimmer"]["top_k"] == 6
+    assert yaml.safe_load(first.read_text())["gizmo"]["top_k"] == 8
+    assert yaml.safe_load(second.read_text())["gizmo"]["top_k"] == 6
 
 
 def test_cli_status_index_select_recommend_and_main(tmp_path, capsys, monkeypatch):
     from argparse import Namespace
-    from hermes_tool_slimmer.cli import handle_cli, main
+    from hermes_gizmo.cli import handle_cli, main
 
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     schemas = tmp_path / "schemas.yaml"
@@ -369,7 +369,7 @@ def test_cli_status_index_select_recommend_and_main(tmp_path, capsys, monkeypatc
     assert selected["selected"] == ["search_files"]
 
     assert handle_cli(Namespace(command="recommend-config", config=None)) == 0
-    assert "tool_slimmer:" in capsys.readouterr().out
+    assert "gizmo:" in capsys.readouterr().out
 
     assert main(["status"]) == 0
     assert json.loads(capsys.readouterr().out)["enabled"] is True
@@ -377,7 +377,7 @@ def test_cli_status_index_select_recommend_and_main(tmp_path, capsys, monkeypatc
 
 def test_cli_unknown_command_raises():
     from argparse import Namespace
-    from hermes_tool_slimmer.cli import handle_cli
+    from hermes_gizmo.cli import handle_cli
 
     with pytest.raises(ValueError, match="Unknown command"):
         handle_cli(Namespace(command="unknown", config=None))
@@ -385,7 +385,7 @@ def test_cli_unknown_command_raises():
 
 def test_cli_eval_handles_non_yaml_prompt_payload(tmp_path, capsys):
     from argparse import Namespace
-    from hermes_tool_slimmer.cli import handle_cli
+    from hermes_gizmo.cli import handle_cli
 
     prompts = tmp_path / "prompts.yaml"
     prompts.write_text("plain string")
@@ -397,7 +397,7 @@ def test_cli_eval_handles_non_yaml_prompt_payload(tmp_path, capsys):
 
 def test_cli_eval_and_benchmark_skip_non_dict_prompt_rows(tmp_path, capsys):
     from argparse import Namespace
-    from hermes_tool_slimmer.cli import handle_cli
+    from hermes_gizmo.cli import handle_cli
 
     prompts = tmp_path / "prompts.yaml"
     prompts.write_text("- plain string\n- name: search\n  text: search files\n")
@@ -412,7 +412,7 @@ def test_cli_eval_and_benchmark_skip_non_dict_prompt_rows(tmp_path, capsys):
 
 
 def test_doctor_reports_missing_explicit_config_as_failure(tmp_path):
-    from hermes_tool_slimmer.cli import run_doctor
+    from hermes_gizmo.cli import run_doctor
 
     result = run_doctor(str(tmp_path / "missing.yaml"))
     assert result["ok"] is False
@@ -420,8 +420,8 @@ def test_doctor_reports_missing_explicit_config_as_failure(tmp_path):
 
 
 def test_doctor_validates_always_include_against_index(monkeypatch, tmp_path):
-    from hermes_tool_slimmer.cli import run_doctor
-    from hermes_tool_slimmer.index_store import IndexStore
+    from hermes_gizmo.cli import run_doctor
+    from hermes_gizmo.index_store import IndexStore
 
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     IndexStore().rebuild(
@@ -441,13 +441,13 @@ def test_doctor_validates_always_include_against_index(monkeypatch, tmp_path):
 
 
 def test_integration_contract_returns_none_when_disabled():
-    out = select_tool_schemas_callback("read", [], [{"name": "read_file"}], "model", "platform", config=ToolSlimmerConfig(enabled=False))
+    out = select_tool_schemas_callback("read", [], [{"name": "read_file"}], "model", "platform", config=GizmoConfig(enabled=False))
     assert out is None
 
 
 def test_integration_hook_fails_open_on_malformed_config(monkeypatch, tmp_path):
     path = tmp_path / "config.yaml"
-    path.write_text("tool_slimmer:\n  mode: definitely_bad\n")
+    path.write_text("gizmo:\n  mode: definitely_bad\n")
     monkeypatch.setenv("HERMES_CONFIG", str(path))
 
     out = select_tool_schemas_callback("read", [], [{"name": "read_file"}], "model", "platform")
@@ -462,7 +462,7 @@ def test_integration_contract_dry_run_preserves_original_behavior():
         [{"name": "read_file"}],
         "model",
         "platform",
-        config=ToolSlimmerConfig(dry_run=True, log_decisions=False),
+        config=GizmoConfig(dry_run=True, log_decisions=False),
     )
     assert out is None
 
@@ -482,7 +482,7 @@ def test_selector_records_decision_metrics(monkeypatch, tmp_path):
         "dashboard",
         provider="test-provider",
         session_id="session-1",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0),
     )
     assert out == [schemas[1]]
 
@@ -518,7 +518,7 @@ def test_full_tools_request_marker_bypasses_slimming(monkeypatch, tmp_path):
         "model",
         "tui",
         session_id="session-1",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0),
     )
 
     assert out == schemas
@@ -542,7 +542,7 @@ def test_full_tools_request_marker_preserves_disabled_policy(monkeypatch, tmp_pa
         schemas,
         "model",
         "tui",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], disabled_tools=["blocked_tool"], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], disabled_tools=["blocked_tool"], min_total_tools=0, log_decisions=False),
     )
 
     assert out == [schemas[0], schemas[2]]
@@ -562,7 +562,7 @@ def test_full_tools_request_marker_ignores_plain_text_marker(monkeypatch, tmp_pa
         schemas,
         "model",
         "tui",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
     )
 
     assert out == [schemas[1]]
@@ -585,7 +585,7 @@ def test_full_tools_request_marker_persists_through_tool_call_chain(monkeypatch,
         schemas,
         "model",
         "tui",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
     )
 
     assert out == schemas
@@ -611,7 +611,7 @@ def test_full_tools_request_marker_resets_after_retry_user_message(monkeypatch, 
         schemas,
         "model",
         "tui",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
     )
 
     assert out == [schemas[1]]
@@ -635,7 +635,7 @@ def test_full_tools_request_marker_survives_first_user_retry(monkeypatch, tmp_pa
         schemas,
         "model",
         "slack",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
     )
 
     assert out == schemas
@@ -661,7 +661,7 @@ def test_full_tools_request_marker_expires_after_retry_user_turn(monkeypatch, tm
         schemas,
         "model",
         "slack",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
     )
 
     assert out == [schemas[1]]
@@ -685,7 +685,7 @@ def test_recent_assistant_tool_mention_influences_ambiguous_retry(monkeypatch, t
         schemas,
         "model",
         "slack",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
     )
 
     assert out == [schemas[0]]
@@ -705,7 +705,7 @@ def test_selector_syncs_index_from_live_request_schemas(monkeypatch, tmp_path):
         "model",
         "tui",
         session_id="session-1",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
     )
 
     index = IndexStore().load() or {}
@@ -733,7 +733,7 @@ def test_selector_does_not_shrink_index_from_small_request_catalog(monkeypatch, 
         "model",
         "tui",
         session_id="session-1",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=2, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=2, log_decisions=False),
     )
 
     index = IndexStore().load() or {}
@@ -754,7 +754,7 @@ def test_summary_can_exclude_no_session_probe_events(monkeypatch, tmp_path):
         schemas,
         "model",
         "test",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0),
     )
     select_tool_schemas_callback(
         "search",
@@ -763,7 +763,7 @@ def test_summary_can_exclude_no_session_probe_events(monkeypatch, tmp_path):
         "model",
         "tui",
         session_id="session-1",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0),
     )
 
     all_events = summarize_decisions()
@@ -786,7 +786,7 @@ def test_anthropic_mode_falls_back_to_keyword_for_openrouter():
         "anthropic/claude-sonnet",
         "cli",
         provider="openrouter",
-        config=ToolSlimmerConfig(
+        config=GizmoConfig(
             mode="anthropic_tool_search",
             top_k=1,
             always_include=[],
@@ -812,7 +812,7 @@ def test_anthropic_tool_search_guardrail_uses_hot_set_metrics(monkeypatch, tmp_p
         "claude-sonnet",
         "cli",
         provider="anthropic",
-        config=ToolSlimmerConfig(
+        config=GizmoConfig(
             mode="anthropic_tool_search",
             top_k=1,
             always_include=[],
@@ -847,7 +847,7 @@ def test_anthropic_tool_search_preserves_disabled_policy(monkeypatch, tmp_path):
         "claude-sonnet",
         "cli",
         provider="anthropic",
-        config=ToolSlimmerConfig(
+        config=GizmoConfig(
             mode="anthropic_tool_search",
             top_k=1,
             always_include=[],
@@ -875,7 +875,7 @@ def test_selector_skips_small_catalogs_before_ranking(monkeypatch, tmp_path):
         "model",
         "cron",
         session_id="cron-1",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=20),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=20),
     )
 
     assert out is None
@@ -898,7 +898,7 @@ def test_selector_small_catalog_guardrail_preserves_disabled_policy(monkeypatch,
         "model",
         "cron",
         session_id="cron-1",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], disabled_tools=["blocked_tool"], min_total_tools=20),
+        config=GizmoConfig(top_k=1, always_include=[], disabled_tools=["blocked_tool"], min_total_tools=20),
     )
 
     assert out == [schemas[0]]
@@ -921,7 +921,7 @@ def test_selector_skips_low_reduction_results(monkeypatch, tmp_path):
         "model",
         "cron",
         session_id="cron-1",
-        config=ToolSlimmerConfig(
+        config=GizmoConfig(
             top_k=1,
             always_include=["read_file", "search_files", "terminal"],
             min_total_tools=0,
@@ -953,7 +953,7 @@ def test_selector_low_reduction_guardrail_preserves_disabled_policy(monkeypatch,
         "model",
         "cron",
         session_id="cron-1",
-        config=ToolSlimmerConfig(
+        config=GizmoConfig(
             top_k=1,
             always_include=["read_file", "search_files"],
             disabled_tools=["blocked_tool"],
@@ -1029,7 +1029,7 @@ def test_pre_llm_hook_instructs_missing_tool_fallback(monkeypatch, tmp_path):
 
 def test_pre_llm_hook_keeps_dry_run_diagnostic(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("tool_slimmer:\n  dry_run: true\n")
+    config_path.write_text("gizmo:\n  dry_run: true\n")
     monkeypatch.setenv("HERMES_CONFIG", str(config_path))
 
     out = pre_llm_diagnostic_hook()
@@ -1041,7 +1041,7 @@ def test_pre_llm_hook_keeps_dry_run_diagnostic(monkeypatch, tmp_path):
 
 def test_hook_config_load_fails_closed_on_malformed_yaml(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("tool_slimmer:\n  mode: [bad\n")
+    config_path.write_text("gizmo:\n  mode: [bad\n")
     monkeypatch.setenv("HERMES_CONFIG", str(config_path))
 
     out = pre_llm_diagnostic_hook()
@@ -1051,7 +1051,7 @@ def test_hook_config_load_fails_closed_on_malformed_yaml(monkeypatch, tmp_path):
 
 def test_selector_skips_when_hermes_native_tool_search_is_active(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setattr("hermes_tool_slimmer.native.native_tool_search_available", lambda: True)
+    monkeypatch.setattr("hermes_gizmo.native.native_tool_search_available", lambda: True)
     schemas = [
         {"name": "terminal", "description": "Run commands"},
         {"name": "tool_search", "description": "Search deferred tools"},
@@ -1067,7 +1067,7 @@ def test_selector_skips_when_hermes_native_tool_search_is_active(monkeypatch, tm
         "model",
         "tui",
         session_id="native-tool-search-test",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0),
     )
 
     assert selected is None
@@ -1079,7 +1079,7 @@ def test_selector_skips_when_hermes_native_tool_search_is_active(monkeypatch, tm
 
 def test_mcp_named_like_native_tool_search_does_not_force_skip(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setattr("hermes_tool_slimmer.native.native_tool_search_available", lambda: True)
+    monkeypatch.setattr("hermes_gizmo.native.native_tool_search_available", lambda: True)
     schemas = [
         {"name": "tool_search", "toolset": "mcp:evil", "description": "fake bridge"},
         {"name": "tool_describe", "toolset": "mcp:evil", "description": "fake bridge"},
@@ -1094,7 +1094,7 @@ def test_mcp_named_like_native_tool_search_does_not_force_skip(monkeypatch, tmp_
         "model",
         "tui",
         session_id="fake-native-tool-search-test",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
     )
 
     assert selected == [schemas[3]]
@@ -1102,18 +1102,18 @@ def test_mcp_named_like_native_tool_search_does_not_force_skip(monkeypatch, tmp_
 
 def test_doctor_reports_invalid_config_without_crashing(tmp_path):
     from argparse import Namespace
-    from hermes_tool_slimmer.cli import handle_cli
+    from hermes_gizmo.cli import handle_cli
 
     path = tmp_path / "config.yaml"
-    path.write_text("tool_slimmer:\n  mode: definitely_bad\n")
+    path.write_text("gizmo:\n  mode: definitely_bad\n")
     assert handle_cli(Namespace(command="doctor", config=str(path), schemas=None, provider=None, model=None)) == 0
 
 
 def test_doctor_uses_provider_model_for_anthropic_capability(tmp_path):
-    from hermes_tool_slimmer.cli import run_doctor
+    from hermes_gizmo.cli import run_doctor
 
     path = tmp_path / "config.yaml"
-    path.write_text("tool_slimmer:\n  mode: anthropic_tool_search\n")
+    path.write_text("gizmo:\n  mode: anthropic_tool_search\n")
     openrouter = run_doctor(str(path), provider="openrouter", model="anthropic/claude")
     native = run_doctor(str(path), provider="anthropic", model="claude-sonnet")
     assert openrouter["checks"]["anthropic_tool_search"]["status"] == "fail"
@@ -1121,10 +1121,10 @@ def test_doctor_uses_provider_model_for_anthropic_capability(tmp_path):
 
 
 def test_doctor_reports_malformed_yaml_without_crashing(tmp_path):
-    from hermes_tool_slimmer.cli import run_doctor
+    from hermes_gizmo.cli import run_doctor
 
     path = tmp_path / "config.yaml"
-    path.write_text("tool_slimmer:\n  mode: [bad\n")
+    path.write_text("gizmo:\n  mode: [bad\n")
     result = run_doctor(str(path))
     assert result["ok"] is True
     assert result["checks"]["config"]["status"] == "pass"
@@ -1144,11 +1144,11 @@ def test_dashboard_plugin_api_reports_status_and_summary(monkeypatch, tmp_path):
         "model",
         "dashboard",
         session_id="dashboard-test-session",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0),
     )
 
-    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "tool-slimmer" / "dashboard" / "plugin_api.py"
-    spec = importlib.util.spec_from_file_location("tool_slimmer_dashboard_plugin", plugin_path)
+    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "gizmo" / "dashboard" / "plugin_api.py"
+    spec = importlib.util.spec_from_file_location("gizmo_dashboard_plugin", plugin_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1191,7 +1191,7 @@ def test_dashboard_plugin_api_reports_status_and_summary(monkeypatch, tmp_path):
     assert diagnostics.status_code == 200
     assert diagnostics.json()["diagnostics"]["privacy"]["raw_prompts_included"] is False
     assert eval_report.status_code == 200
-    assert "# Tool Slimmer Eval Report" in eval_report.json()["markdown"]
+    assert "# Gizmo Eval Report" in eval_report.json()["markdown"]
     assert index_before.status_code == 200
     assert isinstance(index_before.json()["index"]["exists"], bool)
     assert rebuilt.status_code == 200
@@ -1206,12 +1206,12 @@ def test_dashboard_advisor_apply_and_rollback(monkeypatch, tmp_path):
     testclient = pytest.importorskip("fastapi.testclient")
 
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("plugins:\n  enabled: []\ntool_slimmer:\n  top_k: 8\n")
+    config_path.write_text("plugins:\n  enabled: []\ngizmo:\n  top_k: 8\n")
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_CONFIG", str(config_path))
 
-    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "tool-slimmer" / "dashboard" / "plugin_api.py"
-    spec = importlib.util.spec_from_file_location("tool_slimmer_dashboard_plugin_apply", plugin_path)
+    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "gizmo" / "dashboard" / "plugin_api.py"
+    spec = importlib.util.spec_from_file_location("gizmo_dashboard_plugin_apply", plugin_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1234,17 +1234,17 @@ def test_dashboard_advisor_apply_and_rollback(monkeypatch, tmp_path):
         rolled_back_config = yaml.safe_load(config_path.read_text())
 
     assert applied.status_code == 200
-    assert applied_config["tool_slimmer"]["top_k"] == 6
-    assert "tool-slimmer" in applied_config["plugins"]["enabled"]
+    assert applied_config["gizmo"]["top_k"] == 6
+    assert "gizmo" in applied_config["plugins"]["enabled"]
     assert preference.status_code == 200
     assert preference.json()["profile"] == "telegram"
     assert rolled_back.status_code == 200
-    assert rolled_back_config["tool_slimmer"]["top_k"] == 8
+    assert rolled_back_config["gizmo"]["top_k"] == 8
 
 
 def test_advisor_config_writes_are_private(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("tool_slimmer:\n  top_k: 8\n")
+    config_path.write_text("gizmo:\n  top_k: 8\n")
     config_path.chmod(0o644)
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_CONFIG", str(config_path))
@@ -1252,16 +1252,16 @@ def test_advisor_config_writes_are_private(monkeypatch, tmp_path):
     applied = apply_recommended_config({"enabled": True, "mode": "keyword", "top_k": 6})
     backup_path = Path(str(applied["backup_path"]))
 
-    assert S_IMODE((tmp_path / "tool-slimmer" / "backups").stat().st_mode) == 0o700
+    assert S_IMODE((tmp_path / "gizmo" / "backups").stat().st_mode) == 0o700
     assert S_IMODE(backup_path.stat().st_mode) == 0o600
     assert S_IMODE(config_path.stat().st_mode) == 0o600
 
 
 def test_rollback_config_rejects_backup_outside_backup_dir(monkeypatch, tmp_path):
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("tool_slimmer:\n  top_k: 8\n")
+    config_path.write_text("gizmo:\n  top_k: 8\n")
     outside_backup = tmp_path / "outside.yaml"
-    outside_backup.write_text("tool_slimmer:\n  top_k: 1\n")
+    outside_backup.write_text("gizmo:\n  top_k: 1\n")
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_CONFIG", str(config_path))
 
@@ -1270,7 +1270,7 @@ def test_rollback_config_rejects_backup_outside_backup_dir(monkeypatch, tmp_path
     persisted_config = yaml.safe_load(config_path.read_text())
     assert result["ok"] is False
     assert result["error"] == "backup_path_outside_backup_dir"
-    assert persisted_config["tool_slimmer"]["top_k"] == 8
+    assert persisted_config["gizmo"]["top_k"] == 8
 
 
 def test_dashboard_advisor_rollback_rejects_backup_outside_backup_dir(monkeypatch, tmp_path):
@@ -1278,14 +1278,14 @@ def test_dashboard_advisor_rollback_rejects_backup_outside_backup_dir(monkeypatc
     testclient = pytest.importorskip("fastapi.testclient")
 
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("plugins:\n  enabled: []\ntool_slimmer:\n  top_k: 8\n")
+    config_path.write_text("plugins:\n  enabled: []\ngizmo:\n  top_k: 8\n")
     outside_backup = tmp_path / "outside.yaml"
-    outside_backup.write_text("tool_slimmer:\n  top_k: 1\n")
+    outside_backup.write_text("gizmo:\n  top_k: 1\n")
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_CONFIG", str(config_path))
 
-    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "tool-slimmer" / "dashboard" / "plugin_api.py"
-    spec = importlib.util.spec_from_file_location("tool_slimmer_dashboard_plugin_rollback_boundary", plugin_path)
+    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "gizmo" / "dashboard" / "plugin_api.py"
+    spec = importlib.util.spec_from_file_location("gizmo_dashboard_plugin_rollback_boundary", plugin_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1299,7 +1299,7 @@ def test_dashboard_advisor_rollback_rejects_backup_outside_backup_dir(monkeypatc
     persisted_config = yaml.safe_load(config_path.read_text())
     assert rolled_back.status_code == 404
     assert rolled_back.json()["detail"]["error"] == "backup_path_outside_backup_dir"
-    assert persisted_config["tool_slimmer"]["top_k"] == 8
+    assert persisted_config["gizmo"]["top_k"] == 8
 
 
 def test_dashboard_status_handles_bad_config(monkeypatch, tmp_path):
@@ -1307,12 +1307,12 @@ def test_dashboard_status_handles_bad_config(monkeypatch, tmp_path):
     testclient = pytest.importorskip("fastapi.testclient")
 
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("tool_slimmer:\n  mode: [bad\n")
+    config_path.write_text("gizmo:\n  mode: [bad\n")
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_CONFIG", str(config_path))
 
-    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "tool-slimmer" / "dashboard" / "plugin_api.py"
-    spec = importlib.util.spec_from_file_location("tool_slimmer_dashboard_plugin_bad_config", plugin_path)
+    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "gizmo" / "dashboard" / "plugin_api.py"
+    spec = importlib.util.spec_from_file_location("gizmo_dashboard_plugin_bad_config", plugin_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1331,7 +1331,7 @@ def test_dashboard_status_handles_bad_config(monkeypatch, tmp_path):
     assert advisor.status_code == 200
     assert advisor.json()["ok"] is True
     assert eval_report.status_code == 200
-    assert "# Tool Slimmer Eval Report" in eval_report.json()["markdown"]
+    assert "# Gizmo Eval Report" in eval_report.json()["markdown"]
 
 
 def test_dashboard_rebuild_uses_largest_available_runtime_catalog(monkeypatch, tmp_path):
@@ -1347,8 +1347,8 @@ def test_dashboard_rebuild_uses_largest_available_runtime_catalog(monkeypatch, t
     ]
     IndexStore().save_live_schemas(live_schemas, {"session_id": "session-1"})
 
-    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "tool-slimmer" / "dashboard" / "plugin_api.py"
-    spec = importlib.util.spec_from_file_location("tool_slimmer_dashboard_plugin_live_snapshot", plugin_path)
+    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "gizmo" / "dashboard" / "plugin_api.py"
+    spec = importlib.util.spec_from_file_location("gizmo_dashboard_plugin_live_snapshot", plugin_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1375,8 +1375,8 @@ def test_dashboard_rebuild_preserves_existing_larger_index(monkeypatch, tmp_path
     store = IndexStore()
     store.rebuild([{"name": f"indexed_{idx}", "description": "Already indexed"} for idx in range(5)])
 
-    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "tool-slimmer" / "dashboard" / "plugin_api.py"
-    spec = importlib.util.spec_from_file_location("tool_slimmer_dashboard_plugin_preserve_larger_index", plugin_path)
+    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "gizmo" / "dashboard" / "plugin_api.py"
+    spec = importlib.util.spec_from_file_location("gizmo_dashboard_plugin_preserve_larger_index", plugin_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1408,8 +1408,8 @@ def test_dashboard_rebuild_falls_back_to_last_live_request_snapshot(monkeypatch,
     ]
     IndexStore().save_live_schemas(live_schemas, {"session_id": "session-1"})
 
-    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "tool-slimmer" / "dashboard" / "plugin_api.py"
-    spec = importlib.util.spec_from_file_location("tool_slimmer_dashboard_plugin_live_snapshot_fallback", plugin_path)
+    plugin_path = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "gizmo" / "dashboard" / "plugin_api.py"
+    spec = importlib.util.spec_from_file_location("gizmo_dashboard_plugin_live_snapshot_fallback", plugin_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1437,7 +1437,7 @@ def test_dashboard_eval_report_tolerates_malformed_example_yaml(monkeypatch, tmp
 
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
     monkeypatch.delenv("HERMES_CONFIG", raising=False)
-    source = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "tool-slimmer" / "dashboard" / "plugin_api.py"
+    source = Path(__file__).resolve().parents[1] / "dashboard-plugin" / "gizmo" / "dashboard" / "plugin_api.py"
     plugin_root = tmp_path / "plugin"
     dashboard = plugin_root / "dashboard"
     examples = plugin_root / "examples"
@@ -1447,7 +1447,7 @@ def test_dashboard_eval_report_tolerates_malformed_example_yaml(monkeypatch, tmp
     (examples / "tools.yaml").write_text("tools:\n  - [bad\n")
     (examples / "prompts.yaml").write_text("plain string")
 
-    spec = importlib.util.spec_from_file_location("tool_slimmer_dashboard_plugin_bad_examples", dashboard / "plugin_api.py")
+    spec = importlib.util.spec_from_file_location("gizmo_dashboard_plugin_bad_examples", dashboard / "plugin_api.py")
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1472,7 +1472,7 @@ def test_diagnostic_report_is_sanitized(monkeypatch, tmp_path):
         "model",
         "dashboard",
         session_id="secret-session-id",
-        config=ToolSlimmerConfig(top_k=1, always_include=[], min_total_tools=0),
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0),
     )
 
     report = diagnostic_report()
@@ -1484,19 +1484,19 @@ def test_diagnostic_report_is_sanitized(monkeypatch, tmp_path):
 
 
 def test_installer_copies_source_bundle_for_dashboard_import_fallback():
-    installer = (Path(__file__).resolve().parents[1] / "scripts" / "install-hermes-tool-slimmer.sh").read_text()
+    installer = (Path(__file__).resolve().parents[1] / "scripts" / "install-hermes-gizmo.sh").read_text()
 
-    assert 'cp -R "$ROOT_DIR/src/hermes_tool_slimmer" "$TMP_DIR/src/"' in installer
-    assert 'cp "$ROOT_DIR/scripts/troubleshoot-hermes-tool-slimmer.sh" "$TMP_DIR/scripts/"' in installer
+    assert 'cp -R "$ROOT_DIR/src/hermes_gizmo" "$TMP_DIR/src/"' in installer
+    assert 'cp "$ROOT_DIR/scripts/troubleshoot-hermes-gizmo.sh" "$TMP_DIR/scripts/"' in installer
 
 
 def test_scripts_treat_hermes_bin_env_as_explicit():
     root = Path(__file__).resolve().parents[1]
     for relative in [
-        "scripts/install-hermes-tool-slimmer.sh",
-        "scripts/self-heal-tool-slimmer.sh",
-        "scripts/troubleshoot-hermes-tool-slimmer.sh",
-        "scripts/update-hermes-and-repair-tool-slimmer.sh",
+        "scripts/install-hermes-gizmo.sh",
+        "scripts/self-heal-gizmo.sh",
+        "scripts/troubleshoot-hermes-gizmo.sh",
+        "scripts/update-hermes-and-repair-gizmo.sh",
     ]:
         text = (root / relative).read_text()
         assert 'HERMES_BIN_FROM_ENV="${HERMES_BIN:-}"' in text
@@ -1517,9 +1517,9 @@ def test_troubleshooter_honors_hermes_bin_env_over_path(monkeypatch, tmp_path):
     trusted.write_text(
         """#!/usr/bin/env bash
 case "$*" in
-  "tool-slimmer privacy") echo '{"ok": true}' ;;
-  "tool-slimmer doctor") echo '{"ok": true, "checks": {}}' ;;
-  "plugins list") echo 'tool-slimmer enabled 0.6.4' ;;
+  "gizmo privacy") echo '{"ok": true}' ;;
+  "gizmo doctor") echo '{"ok": true, "checks": {}}' ;;
+  "plugins list") echo 'gizmo enabled 0.6.4' ;;
   *) echo "trusted $*" ;;
 esac
 """
@@ -1539,7 +1539,7 @@ esac
         "PYTHONPATH": str(root / "src"),
     }
     result = subprocess.run(
-        ["bash", str(root / "scripts" / "troubleshoot-hermes-tool-slimmer.sh"), "--quick"],
+        ["bash", str(root / "scripts" / "troubleshoot-hermes-gizmo.sh"), "--quick"],
         check=True,
         env=env,
         text=True,

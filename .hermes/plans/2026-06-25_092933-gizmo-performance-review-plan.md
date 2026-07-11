@@ -21,7 +21,7 @@ Read-only checks from the active default profile showed:
 
 - Active config: `/home/openclaw/.hermes/config.yaml`
 - Config mtime used as default review boundary: `2026-06-25T00:07:32.332118-04:00`
-- Plugin enabled list includes `tool-slimmer`.
+- Plugin enabled list includes `gizmo`.
 - Base Gizmo config:
   - `enabled: true`
   - `mode: keyword`
@@ -32,7 +32,7 @@ Read-only checks from the active default profile showed:
   - `progressive_max_loaded: 20`
 - Active profile overrides currently exist for: `webui`, `tui`, `discord`.
 
-Resolved effective config from `hermes_tool_slimmer.config.load_config(...).for_context(...)`:
+Resolved effective config from `hermes_gizmo.config.load_config(...).for_context(...)`:
 
 | Platform key | Enabled | Dry-run | Mode | Progressive | Notes |
 |---|---:|---:|---|---:|---|
@@ -45,7 +45,7 @@ Resolved effective config from `hermes_tool_slimmer.config.load_config(...).for_
 
 Decision-log snapshot at time of planning:
 
-- Decision log: `/home/openclaw/.hermes/tool-slimmer/decisions.jsonl`
+- Decision log: `/home/openclaw/.hermes/gizmo/decisions.jsonl`
 - Total events: ~87k
 - Post-config-boundary events: 686
 - Post-config platform counts: `webui` 551, `cli` 132, `cron` 3
@@ -111,14 +111,14 @@ Purpose: prove that the reviewed telemetry comes from the intended Gizmo runtime
 Collect and preserve:
 
 1. Redacted config snapshot:
-   - `tool_slimmer` / `gizmo` section only.
+   - `gizmo` / `gizmo` section only.
    - plugin enabled state.
    - platform profiles.
 2. Runtime status:
-   - `hermes tool-slimmer status`
-   - `hermes tool-slimmer doctor`
+   - `hermes gizmo status`
+   - `hermes gizmo doctor`
 3. Package/import identity:
-   - Python module path for `hermes_tool_slimmer`.
+   - Python module path for `hermes_gizmo`.
    - package version if installed metadata exists.
    - current repo git commit.
 4. Live schema snapshots:
@@ -518,7 +518,7 @@ Immediate rollback to dry-run or pause active slimming for a platform if any occ
 Rollback path should be platform-scoped when possible:
 
 ```yaml
-tool_slimmer:
+gizmo:
   profiles:
     <platform>:
       dry_run: true
@@ -557,7 +557,7 @@ For any later code/doc changes caused by findings:
 
 ```bash
 ruff check .
-python -m compileall -q src tests dashboard-plugin/tool-slimmer dashboard-plugin/gizmo
+python -m compileall -q src tests dashboard-plugin/gizmo dashboard-plugin/gizmo
 pytest -q
 ```
 

@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import time
 
-from hermes_tool_slimmer.config import ToolSlimmerConfig
-from hermes_tool_slimmer.embeddings import (
+from hermes_gizmo.config import GizmoConfig
+from hermes_gizmo.embeddings import (
     CacheProvenance,
     EmbeddingCache,
     FakeEmbeddingProvider,
@@ -12,13 +12,13 @@ from hermes_tool_slimmer.embeddings import (
     _canonical_text_hash,
     SemanticRanker,
 )
-from hermes_tool_slimmer.schemas import SELECT_SCHEMA
-from hermes_tool_slimmer.session_tools import (
+from hermes_gizmo.schemas import SELECT_SCHEMA
+from hermes_gizmo.session_tools import (
     SessionLoadedState,
     _schema_is_eligible,
-    tool_slimmer_loaded_tools,
-    tool_slimmer_tool_details,
-    tool_slimmer_tool_search,
+    gizmo_loaded_tools,
+    gizmo_tool_details,
+    gizmo_tool_search,
 )
 
 
@@ -37,31 +37,31 @@ class TestSchemaIsEligible:
     include_mcp_tools, include_native_tools, and duplicate-name ambiguity."""
 
     def test_disabled_tool(self):
-        cfg = ToolSlimmerConfig(disabled_tools=["terminal"])
+        cfg = GizmoConfig(disabled_tools=["terminal"])
         assert _schema_is_eligible({"name": "terminal"}, cfg) is False
 
     def test_enabled_tool(self):
-        cfg = ToolSlimmerConfig(disabled_tools=["terminal"])
+        cfg = GizmoConfig(disabled_tools=["terminal"])
         assert _schema_is_eligible({"name": "read_file"}, cfg) is True
 
     def test_disabled_toolset(self):
-        cfg = ToolSlimmerConfig(disabled_toolsets=["github"])
+        cfg = GizmoConfig(disabled_toolsets=["github"])
         assert _schema_is_eligible({"name": "github_search_code", "toolset": "github"}, cfg) is False
 
     def test_other_toolset_not_disabled(self):
-        cfg = ToolSlimmerConfig(disabled_toolsets=["github"])
+        cfg = GizmoConfig(disabled_toolsets=["github"])
         assert _schema_is_eligible({"name": "slack_send_message", "toolset": "slack"}, cfg) is True
 
     def test_mcp_excluded(self):
-        cfg = ToolSlimmerConfig(include_mcp_tools=False)
+        cfg = GizmoConfig(include_mcp_tools=False)
         assert _schema_is_eligible({"name": "mcp_server_foo.tool_a", "toolset": "mcp:foo"}, cfg) is False
 
     def test_native_excluded(self):
-        cfg = ToolSlimmerConfig(include_native_tools=False)
+        cfg = GizmoConfig(include_native_tools=False)
         assert _schema_is_eligible({"name": "terminal", "toolset": "native"}, cfg) is False
 
     def test_mcp_included(self):
-        cfg = ToolSlimmerConfig(include_mcp_tools=True)
+        cfg = GizmoConfig(include_mcp_tools=True)
         assert _schema_is_eligible({"name": "mcp_server_foo.tool_a", "toolset": "mcp:foo"}, cfg) is True
 
 
@@ -69,11 +69,11 @@ class TestToolSearchEligibility:
     """B1: tool_search must mark ineligible tools disabled=true and can_load=false."""
 
     def test_disabled_toolset_marked_disabled_and_not_loadable(self, monkeypatch):
-        cfg = ToolSlimmerConfig(disabled_toolsets=["github"], progressive_enabled=True)
+        cfg = GizmoConfig(disabled_toolsets=["github"], progressive_enabled=True)
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
-        result = json.loads(tool_slimmer_tool_search({"query": "github"}, schemas=SCHEMAS))
+        result = json.loads(gizmo_tool_search({"query": "github"}, schemas=SCHEMAS))
         assert result["ok"] is True
         github_entry = next((r for r in result["results"] if r["name"] == "github_search_code"), None)
         assert github_entry is not None
@@ -86,20 +86,20 @@ class TestToolSearchEligibility:
             {"name": "terminal", "toolset": "slack", "description": "Duplicate name"},
         ]
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: ToolSlimmerConfig()
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: GizmoConfig()
         )
-        result = json.loads(tool_slimmer_tool_search({"query": "terminal"}, schemas=schemas))
+        result = json.loads(gizmo_tool_search({"query": "terminal"}, schemas=schemas))
         terminal_entries = [r for r in result["results"] if r["name"] == "terminal"]
         assert len(terminal_entries) == 1
         assert terminal_entries[0]["ambiguous"] is True
         assert terminal_entries[0]["can_load"] is False
 
     def test_mcp_filter_omits_when_disabled(self, monkeypatch):
-        cfg = ToolSlimmerConfig(include_mcp_tools=False, progressive_enabled=True)
+        cfg = GizmoConfig(include_mcp_tools=False, progressive_enabled=True)
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
-        result = json.loads(tool_slimmer_tool_search({"query": "mcp"}, schemas=SCHEMAS))
+        result = json.loads(gizmo_tool_search({"query": "mcp"}, schemas=SCHEMAS))
         mcp_entry = next((r for r in result["results"] if r["name"] == "mcp_server_foo.tool_a"), None)
         assert mcp_entry is not None
         assert mcp_entry["disabled"] is True
@@ -110,17 +110,17 @@ class TestToolDetailsEligibility:
     """B1: tool_details(load=True) must reject ineligible tools before mutating state."""
 
     def test_load_disabled_toolset_rejected(self, monkeypatch):
-        cfg = ToolSlimmerConfig(
+        cfg = GizmoConfig(
             disabled_toolsets=["github"],
             progressive_enabled=True,
             progressive_max_loaded=10,
             progressive_ttl_seconds=3600,
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
         result = json.loads(
-            tool_slimmer_tool_details(
+            gizmo_tool_details(
                 {"name": "github_search_code", "load": True},
                 schemas=SCHEMAS,
             )
@@ -133,16 +133,16 @@ class TestToolDetailsEligibility:
             {"name": "terminal", "toolset": "native", "description": "Run shell commands"},
             {"name": "terminal", "toolset": "slack", "description": "Duplicate name"},
         ]
-        cfg = ToolSlimmerConfig(
+        cfg = GizmoConfig(
             progressive_enabled=True,
             progressive_max_loaded=10,
             progressive_ttl_seconds=3600,
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
         result = json.loads(
-            tool_slimmer_tool_details(
+            gizmo_tool_details(
                 {"name": "terminal", "load": True},
                 schemas=schemas,
             )
@@ -151,17 +151,17 @@ class TestToolDetailsEligibility:
         assert result["error"] == "tool_ambiguous"
 
     def test_load_mcp_excluded_rejected(self, monkeypatch):
-        cfg = ToolSlimmerConfig(
+        cfg = GizmoConfig(
             include_mcp_tools=False,
             progressive_enabled=True,
             progressive_max_loaded=10,
             progressive_ttl_seconds=3600,
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
         result = json.loads(
-            tool_slimmer_tool_details(
+            gizmo_tool_details(
                 {"name": "mcp_server_foo.tool_a", "load": True},
                 schemas=SCHEMAS,
             )
@@ -170,20 +170,20 @@ class TestToolDetailsEligibility:
         assert result["error"] == "tool_disabled"
 
     def test_eligible_tool_load_succeeds(self, monkeypatch, tmp_path):
-        cfg = ToolSlimmerConfig(
+        cfg = GizmoConfig(
             progressive_enabled=True,
             progressive_max_loaded=10,
             progressive_ttl_seconds=3600,
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.hermes_home",
+            "hermes_gizmo.session_tools.hermes_home",
             lambda: tmp_path,
         )
         result = json.loads(
-            tool_slimmer_tool_details(
+            gizmo_tool_details(
                 {"name": "terminal", "load": True},
                 schemas=SCHEMAS,
             )
@@ -197,22 +197,22 @@ class TestToolDetailsNoMutationOnReject:
     """B1: rejected load must not mutate session state."""
 
     def test_rejected_load_does_not_mutate_state(self, monkeypatch, tmp_path):
-        cfg = ToolSlimmerConfig(
+        cfg = GizmoConfig(
             disabled_toolsets=["github"],
             progressive_enabled=True,
             progressive_max_loaded=10,
             progressive_ttl_seconds=3600,
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.hermes_home",
+            "hermes_gizmo.session_tools.hermes_home",
             lambda: tmp_path,
         )
         # Pre-load a valid tool
         state = SessionLoadedState(
-            path=tmp_path / "tool-slimmer" / "session_loaded.json",
+            path=tmp_path / "gizmo" / "session_loaded.json",
             max_loaded=10,
             ttl_seconds=3600,
         )
@@ -221,7 +221,7 @@ class TestToolDetailsNoMutationOnReject:
 
         # Attempt to load disabled toolset tool
         result = json.loads(
-            tool_slimmer_tool_details(
+            gizmo_tool_details(
                 {"name": "github_search_code", "load": True},
                 schemas=SCHEMAS,
             )
@@ -229,7 +229,7 @@ class TestToolDetailsNoMutationOnReject:
         assert result["ok"] is False
 
         state2 = SessionLoadedState(
-            path=tmp_path / "tool-slimmer" / "session_loaded.json",
+            path=tmp_path / "gizmo" / "session_loaded.json",
             max_loaded=10,
             ttl_seconds=3600,
         )
@@ -350,33 +350,33 @@ class TestSessionLoadedDiagnostic:
     """B2: loaded tools diagnostic reflects current session."""
 
     def test_loaded_tools_per_session(self, monkeypatch, tmp_path):
-        cfg = ToolSlimmerConfig(
+        cfg = GizmoConfig(
             progressive_enabled=True,
             progressive_max_loaded=10,
             progressive_ttl_seconds=3600,
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.hermes_home",
+            "hermes_gizmo.session_tools.hermes_home",
             lambda: tmp_path,
         )
         # Prime session a via internal state
         state_a = SessionLoadedState(
-            path=tmp_path / "tool-slimmer" / "session_loaded.json",
+            path=tmp_path / "gizmo" / "session_loaded.json",
             max_loaded=10,
             ttl_seconds=3600,
             session_id="sess-a",
         )
         state_a.add("terminal")
 
-        result = json.loads(tool_slimmer_loaded_tools({}, session_id="sess-a"))
+        result = json.loads(gizmo_loaded_tools({}, session_id="sess-a"))
         assert result["ok"] is True
         assert result["count"] == 1
         assert "terminal" in result["tools"]
 
-        result_b = json.loads(tool_slimmer_loaded_tools({}, session_id="sess-b"))
+        result_b = json.loads(gizmo_loaded_tools({}, session_id="sess-b"))
         assert result_b["count"] == 0
 
 
@@ -527,11 +527,11 @@ class TestSchemaEnumSynchronized:
         assert "semantic_hybrid" in modes
 
     def test_config_valid_modes_has_semantic_hybrid(self):
-        from hermes_tool_slimmer.config import VALID_MODES
+        from hermes_gizmo.config import VALID_MODES
         assert "semantic_hybrid" in VALID_MODES
 
     def test_schema_enum_matches_config_valid_modes(self):
-        from hermes_tool_slimmer.config import VALID_MODES
+        from hermes_gizmo.config import VALID_MODES
         schema_modes = set(SELECT_SCHEMA["parameters"]["properties"]["mode"]["enum"])
         config_modes = set(VALID_MODES)
         assert schema_modes == config_modes, f"Mismatched: schema={schema_modes}, config={config_modes}"
@@ -541,21 +541,21 @@ class TestIntegrationNoStateLeak:
     """Cross-blocker integration: session A load does not leak to session B."""
 
     def test_cross_session_tool_isolation(self, monkeypatch, tmp_path):
-        cfg = ToolSlimmerConfig(
+        cfg = GizmoConfig(
             progressive_enabled=True,
             progressive_max_loaded=10,
             progressive_ttl_seconds=3600,
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.load_config", lambda *_a, **_k: cfg
+            "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
         monkeypatch.setattr(
-            "hermes_tool_slimmer.session_tools.hermes_home",
+            "hermes_gizmo.session_tools.hermes_home",
             lambda: tmp_path,
         )
         # Load via session A
         result = json.loads(
-            tool_slimmer_tool_details(
+            gizmo_tool_details(
                 {"name": "terminal", "load": True},
                 schemas=SCHEMAS,
                 session_id="sess-a",
@@ -564,9 +564,9 @@ class TestIntegrationNoStateLeak:
         assert result["ok"] is True
 
         # Session B should not see it
-        diag_b = json.loads(tool_slimmer_loaded_tools({}, session_id="sess-b"))
+        diag_b = json.loads(gizmo_loaded_tools({}, session_id="sess-b"))
         assert diag_b["count"] == 0
 
         # Session A should see it
-        diag_a = json.loads(tool_slimmer_loaded_tools({}, session_id="sess-a"))
+        diag_a = json.loads(gizmo_loaded_tools({}, session_id="sess-a"))
         assert diag_a["count"] == 1

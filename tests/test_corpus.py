@@ -1,4 +1,4 @@
-from hermes_tool_slimmer.corpus import build_document, build_corpus, tool_description, tool_name
+from hermes_gizmo.corpus import build_document, build_corpus, tool_description, tool_name
 
 
 def test_tool_metadata_handles_null_function_wrapper():

@@ -1,8 +1,8 @@
 # Hermes core integration
 
-Hermes Gizmo, derived from Hermes Tool Slimmer, needs one upstream integration point before provider request construction. Current Hermes v0.14.0 source inspection found the main schema provider in `model_tools.get_tool_definitions(...)`, plugin hook registration in `hermes_cli.plugins.PluginContext.register_hook(...)`, turn orchestration in `agent/conversation_loop.py`, and provider kwargs construction in `agent/chat_completion_helpers.py`.
+Hermes Gizmo, whose upstream provenance is recorded in `NOTICE`, needs one Hermes Agent integration point before provider request construction. Current Hermes v0.14.0 source inspection found the main schema provider in `model_tools.get_tool_definitions(...)`, plugin hook registration in `hermes_cli.plugins.PluginContext.register_hook(...)`, turn orchestration in `agent/conversation_loop.py`, and provider kwargs construction in `agent/chat_completion_helpers.py`.
 
-Compatibility note: Hermes Gizmo/Tool Slimmer v0.4.0+ is the supported line for Hermes Agent v0.14.0 active schema slimming. The installer patcher still carries a fallback for older monolithic `run_agent.py` Hermes cores, but older Tool Slimmer releases should not be used with Hermes v0.14.0.
+Compatibility note: Hermes Gizmo v0.4.0+ is the supported line for Hermes Agent v0.14.0 active schema slimming. The installer patcher still carries a fallback for older monolithic `run_agent.py` Hermes cores, but older Gizmo releases should not be used with Hermes v0.14.0.
 
 `docs/hermes-core-selector-hook.patch` is a minimal upstreamable patch artifact for Hermes core development, not the normal user install path. Normal users should rerun `scripts/install-hermes-gizmo.sh`; the installer detects the local Hermes layout and applies the compatibility patch for released Hermes versions. The patch artifact adds:
 

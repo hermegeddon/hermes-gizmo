@@ -19,4 +19,4 @@ labels: ["enhancement", "needs-triage"]
 
 - Does this affect disabled-tool policy, fail-open behavior, provider gating, or diagnostics privacy?
 - Does this require Hermes core changes?
-- Should legacy `tool-slimmer` compatibility remain unchanged?
+- Does this change any established Gizmo package, plugin, tool, config, or dashboard surface?

@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from hermes_gizmo.skills_catalog import (
-    SkillCatalog,
     SkillCatalogEntry,
     SkillRoot,
     _ResolverSkillMetadata,
@@ -460,15 +459,3 @@ class TestDefaultRoots:
         catalog = build_skill_catalog()
         assert [entry.name for entry in catalog.entries] == ["homed"]
         assert catalog.entries[0].source_label == "local"
-
-
-class TestCompatibilityShim:
-    def test_legacy_module_reexports_canonical_symbols(self):
-        from hermes_tool_slimmer import skills_catalog as legacy
-
-        assert legacy.SkillCatalogEntry is SkillCatalogEntry
-        assert legacy.SkillCatalog is SkillCatalog
-        assert legacy.build_skill_catalog is build_skill_catalog
-        assert legacy.search_skill_catalog is search_skill_catalog
-        assert legacy.diagnose_skill_catalog is diagnose_skill_catalog
-        assert legacy.format_skill_catalog_report is format_skill_catalog_report

@@ -1,4 +1,4 @@
-# Tool Slimmer Eval Report
+# Gizmo Eval Report
 
 | Metric | Value |
 |---|---:|

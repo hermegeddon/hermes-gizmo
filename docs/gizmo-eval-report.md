@@ -68,7 +68,7 @@ The 3 misses occur because deterministic fake embeddings do not encode semantic 
    - `hybrid` is strictly safer than keyword with negligible overhead.
 2. **When to enable semantic_hybrid**
    - Only when a real embedding provider is configured (OpenAI-compatible endpoint with API key, or a local embedding server via `semantic_openai_base_url`).
-   - Verify via `hermes tool-slimmer doctor` that the provider path is reachable.
+   - Verify via `hermes gizmo doctor` that the provider path is reachable.
 3. **Always start with `dry_run: true`**
    - Inspect selector output before activating slimming.
 4. **Config minimums for this catalog**
@@ -83,14 +83,14 @@ pip install -e ".[dev]"
 
 # This report was produced with these commands:
 .venv/bin/python -c "
-from hermes_tool_slimmer.config import ToolSlimmerConfig
-from hermes_tool_slimmer.cli import _load_schemas, _load_prompts, eval_prompts
+from hermes_gizmo.config import GizmoConfig
+from hermes_gizmo.cli import _load_schemas, _load_prompts, eval_prompts
 
 schemas = _load_schemas('/tmp/benchmark_schemas.yaml')
 prompts = _load_prompts('/tmp/benchmark_prompts.yaml')
 
 for mode in ['keyword', 'hybrid', 'semantic_hybrid']:
-    cfg = ToolSlimmerConfig(
+    cfg = GizmoConfig(
         mode=mode,
         top_k=8,
         always_include=['terminal','read_file','write_file','patch','search_files']

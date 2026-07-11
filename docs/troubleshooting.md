@@ -5,7 +5,7 @@
 When opening a GitHub issue, include this sanitized report:
 
 ```bash
-hermes tool-slimmer diagnostics
+hermes gizmo diagnostics
 ```
 
 It includes config shape, doctor checks, index counts, live snapshot summaries, and recent decision counters. It does not include raw prompts, environment secret values, or session IDs.
@@ -15,11 +15,11 @@ It includes config shape, doctor checks, index counts, live snapshot summaries, 
 The installer installs the version in the local checkout you run it from. If the output says something like:
 
 ```text
-Built hermes-tool-slimmer @ file:///tmp/hermes-tool-slimmer
-~ hermes-tool-slimmer==0.4.7
+Built hermes-gizmo @ file:///tmp/hermes-gizmo
+~ hermes-gizmo==0.4.7
 ```
 
-then the installer worked, but `/tmp/hermes-tool-slimmer` is an old checkout. Update or replace it with the current Hermes Gizmo checkout before reinstalling:
+then the installer worked, but `/tmp/hermes-gizmo` is an old checkout. Update or replace it with the current Hermes Gizmo checkout before reinstalling:
 
 ```bash
 cd "$HOME"
@@ -32,10 +32,10 @@ else
 fi
 
 HERMES_BIN="$HOME/.hermes/hermes-agent/venv/bin/hermes" bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
-$HOME/.hermes/hermes-agent/venv/bin/hermes tool-slimmer doctor
+$HOME/.hermes/hermes-agent/venv/bin/hermes gizmo doctor
 ```
 
-If Tool Slimmer was installed from the Hermes dashboard and shows `Source: git`, use the dashboard **Git pull** / **Update** action instead. If it shows `Source: user`, use the terminal path above.
+If Gizmo was installed from the Hermes dashboard and shows `Source: git`, use the dashboard **Git pull** / **Update** action instead. If it shows `Source: user`, use the terminal path above.
 
 ## Installer script is blocked
 
@@ -45,14 +45,14 @@ If Hermes or an agent says the Hermes Gizmo repo downloaded correctly but the in
 bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
 ```
 
-If the repo is somewhere else, replace `$HOME/hermes-gizmo` with that path. Avoid running installer scripts from a predictable shared `/tmp` checkout. The installer performs the remaining normal steps: package install, dashboard plugin copy, plugin enablement, selector-hook patch check, service restart, and `hermes tool-slimmer doctor`.
+If the repo is somewhere else, replace `$HOME/hermes-gizmo` with that path. Avoid running installer scripts from a predictable shared `/tmp` checkout. The installer performs the remaining normal steps: package install, dashboard plugin copy, plugin enablement, selector-hook patch check, service restart, and `hermes gizmo doctor`.
 
 Using `bash ...` avoids needing the script executable bit. If the environment still blocks it, approve that exact command in the approval prompt.
 
-If `hermes tool-slimmer doctor` says `invalid choice: 'tool-slimmer'`, check whether you are using the source-checkout launcher instead of the venv launcher. Prefer:
+If `hermes gizmo doctor` says `invalid choice: 'gizmo'`, check whether you are using the source-checkout launcher instead of the venv launcher. Prefer:
 
 ```bash
-$HOME/.hermes/hermes-agent/venv/bin/hermes tool-slimmer doctor
+$HOME/.hermes/hermes-agent/venv/bin/hermes gizmo doctor
 ```
 
 For reinstall/repair, force that same launcher:
@@ -68,12 +68,12 @@ The repo is downloaded. Continue by running:
 HERMES_BIN="$HOME/.hermes/hermes-agent/venv/bin/hermes" bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
 If this command is blocked, request approval for that exact command.
 After it runs, verify with:
-$HOME/.hermes/hermes-agent/venv/bin/hermes tool-slimmer doctor
+$HOME/.hermes/hermes-agent/venv/bin/hermes gizmo doctor
 ```
 
 ## Hermes update removed active slimming
 
-Hermes updates can replace the files that Tool Slimmer patches for active schema selection. If `hermes tool-slimmer doctor` warns that `select_tool_schemas` is unavailable after updating Hermes, run:
+Hermes updates can replace the files that Gizmo patches for active schema selection. If `hermes gizmo doctor` warns that `select_tool_schemas` is unavailable after updating Hermes, run:
 
 ```bash
 bash "$HOME/hermes-gizmo/scripts/install-hermes-gizmo.sh"
@@ -87,7 +87,7 @@ For future Hermes updates, use the update-and-repair helper from the Hermes Gizm
 scripts/update-hermes-and-repair-gizmo.sh
 ```
 
-It runs `hermes update --yes` so Hermes does not wait for a keypress at the stash-restore prompt, keeps the default pre-update backup unless you pass `--no-backup`, reruns the Tool Slimmer installer, restarts services, and prints the doctor report.
+It runs `hermes update --yes` so Hermes does not wait for a keypress at the stash-restore prompt, keeps the default pre-update backup unless you pass `--no-backup`, reruns the Gizmo installer, restarts services, and prints the doctor report.
 
 To make this repair automatic after reboot/login, enable the guarded self-heal unit:
 
@@ -95,7 +95,7 @@ To make this repair automatic after reboot/login, enable the guarded self-heal u
 scripts/self-heal-gizmo.sh --install-systemd
 ```
 
-It does not update Hermes or Tool Slimmer. It only reruns the local repair installer when `doctor` confirms Tool Slimmer is enabled and the selector hook is missing. Remove it with:
+It does not update Hermes or Gizmo. It only reruns the local repair installer when `doctor` confirms Gizmo is enabled and the selector hook is missing. Remove it with:
 
 ```bash
 scripts/self-heal-gizmo.sh --uninstall-systemd
@@ -103,31 +103,31 @@ scripts/self-heal-gizmo.sh --uninstall-systemd
 
 ## Dashboard savings look too high
 
-Dashboard savings are estimated schema-token savings, not guaranteed billable-token savings. Tool Slimmer computes them from serialized tool-schema JSON bytes divided by 4 before and after selection. Actual provider input-token and billing deltas can differ because tokenizers, prompt caching, system prompts, conversation history, and provider-specific tool serialization are outside this estimate.
+Dashboard savings are estimated schema-token savings, not guaranteed billable-token savings. Gizmo computes them from serialized tool-schema JSON bytes divided by 4 before and after selection. Actual provider input-token and billing deltas can differ because tokenizers, prompt caching, system prompts, conversation history, and provider-specific tool serialization are outside this estimate.
 
 The dashboard headline excludes probe/test events that do not have a Hermes `session_id`. Use the dashboard API's `all_summary` field when you need a full audit of every logged decision.
 
 ## No reduction occurs
 
-Run `hermes tool-slimmer doctor`. If the core selector hook is unavailable, Hermes Tool Slimmer can benchmark and log dry-run decisions but cannot replace schemas sent to providers.
+Run `hermes gizmo doctor`. If the core selector hook is unavailable, Hermes Gizmo can benchmark and log dry-run decisions but cannot replace schemas sent to providers.
 
-If `doctor`, `status`, or recent decisions mention `native_hermes_tool_search_active`, Hermes has already replaced deferrable MCP/plugin schemas with its native `tool_search` / `tool_describe` / `tool_call` bridge. Tool Slimmer intentionally skips active slimming for that request so it does not remove the bridge Hermes needs to reach deferred tools. This is expected on newer Hermes builds when Hermes' own tool schema threshold is crossed.
+If `doctor`, `status`, or recent decisions mention `native_hermes_tool_search_active`, Hermes has already replaced deferrable MCP/plugin schemas with its native `tool_search` / `tool_describe` / `tool_call` bridge. Gizmo intentionally skips active slimming for that request so it does not remove the bridge Hermes needs to reach deferred tools. This is expected on newer Hermes builds when Hermes' own tool schema threshold is crossed.
 
-On Hermes Agent v0.14.0, use Hermes Gizmo/Tool Slimmer v0.4.0 or newer and rerun `scripts/install-hermes-gizmo.sh` so the installer applies the modular core patch. Older Tool Slimmer releases targeted the previous `run_agent.py` request path and will not actively slim v0.14.0 provider requests.
+On Hermes Agent v0.14.0, use Hermes Gizmo v0.4.0 or newer and rerun `scripts/install-hermes-gizmo.sh` so the installer applies the modular core patch. Older Gizmo releases targeted the previous `run_agent.py` request path and will not actively slim v0.14.0 provider requests.
 
-Also check `tool_slimmer.min_total_tools` and `tool_slimmer.min_estimated_reduction_percent`. By default, Tool Slimmer ranks even small catalogs (`min_total_tools: 0`) so subagents and restricted toolsets still benefit, then skips ranked selections under 5% estimated schema reduction. Raise `min_total_tools` only for cron/small-toolset paths where the overhead is not worth the tiny savings.
+Also check `gizmo.min_total_tools` and `gizmo.min_estimated_reduction_percent`. By default, Gizmo ranks even small catalogs (`min_total_tools: 0`) so subagents and restricted toolsets still benefit, then skips ranked selections under 5% estimated schema reduction. Raise `min_total_tools` only for cron/small-toolset paths where the overhead is not worth the tiny savings.
 
 In `anthropic_tool_search` mode, reduction metrics and the reduction guardrail use the hot set of immediately loaded tools. The dashboard still records Anthropic payload and deferred-tool counts so you can confirm defer loading is active.
 
-If the standalone `tool_slimmer_select` tool reports `no_schemas_available`, rebuild the index from the dashboard or run it inside a Hermes process where live tool definitions are importable. The tool reports `schema_source` as `provided`, `live`, or `index` when selection succeeds.
+If the standalone `gizmo_select` tool reports `no_schemas_available`, rebuild the index from the dashboard or run it inside a Hermes process where live tool definitions are importable. The tool reports `schema_source` as `provided`, `live`, or `index` when selection succeeds.
 
 ## Tool index looks stale
 
-Open the Tool Slimmer dashboard page and click **Rebuild From Hermes Tools**. The card shows the index path, count, checksum, and last-updated time. The live selector still ranks the current request's tool schemas in memory, so a stale persisted index affects visibility and troubleshooting, not request-time safety.
+Open the Gizmo dashboard page and click **Rebuild From Hermes Tools**. The card shows the index path, count, checksum, and last-updated time. The live selector still ranks the current request's tool schemas in memory, so a stale persisted index affects visibility and troubleshooting, not request-time safety.
 
 ## A required tool is missing
 
-Ask the model to call `tool_slimmer_request_full_tools`, or add the tool to `tool_slimmer.always_include` if it should stay loaded on every request. The fallback tool marks the conversation so the next model request receives the full Hermes schema list and can retry the original action. The selector never resurrects tools that Hermes already disabled.
+Ask the model to call `gizmo_request_full_tools`, or add the tool to `gizmo.always_include` if it should stay loaded on every request. The fallback tool marks the conversation so the next model request receives the full Hermes schema list and can retry the original action. The selector never resurrects tools that Hermes already disabled.
 
 In keyword mode, the selector mostly matches text present in tool names, toolsets, descriptions, and parameter schemas. It includes a small built-in synonym map for common browser/navigation wording, but domain-specific synonyms should still be added to tool descriptions or handled by a semantic selector mode when one is available.
 
@@ -137,29 +137,29 @@ In keyword mode, the selector mostly matches text present in tool names, toolset
 
 `top_k: 0` is a valid explicit setting for selecting no ranked tools. It does not trigger fail-open by itself.
 
-If simple text-only messages like `hello`, `ping`, or `thanks` still show high baseline tokens, separate tool-schema overhead from Hermes' system prompt, skills, platform context, and conversation history. Tool Slimmer can reduce the schema portion, but it cannot remove non-tool prompt content. Low-information messages keep only `always_include` plus `tool_slimmer_request_full_tools`.
+If simple text-only messages like `hello`, `ping`, or `thanks` still show high baseline tokens, separate tool-schema overhead from Hermes' system prompt, skills, platform context, and conversation history. Gizmo can reduce the schema portion, but it cannot remove non-tool prompt content. Low-information messages keep only `always_include` plus `gizmo_request_full_tools`.
 
-If a tool is noisy in your deployment, add it to `tool_slimmer.always_exclude` (alias for `disabled_tools`). Example:
+If a tool is noisy in your deployment, add it to `gizmo.always_exclude` (alias for `disabled_tools`). Example:
 
 ```yaml
-tool_slimmer:
+gizmo:
   top_k: 4
   always_include: [memory]
   always_exclude: [terminal, cronjob]
 ```
 
-Use this only when that entry point should not receive those tools through Tool Slimmer ranking. The full-tool fallback remains available when Hermes has registered it.
+Use this only when that entry point should not receive those tools through Gizmo ranking. The full-tool fallback remains available when Hermes has registered it.
 
 ## Experimental two-pass mode
 
-Use `mode: two_pass` only when a deployment has very large tool catalogs or providers with tight TPM limits. It sends a compact catalog first, then relies on `tool_slimmer_hydrate_tools` to request full schemas for multiple tools in one batch. The next request exposes those full schemas and can cache them for the session.
+Use `mode: two_pass` only when a deployment has very large tool catalogs or providers with tight TPM limits. It sends a compact catalog first, then relies on `gizmo_hydrate_tools` to request full schemas for multiple tools in one batch. The next request exposes those full schemas and can cache them for the session.
 
-If two-pass does not expose the expected tool, check recent dashboard events for `two_pass_requested_tools`, `two_pass_hydrated_tools`, and `two_pass_phase`. If `tool_slimmer_hydrate_tools` is missing from Hermes' registered tools, two-pass falls back to keyword mode when `two_pass.fallback_to_keyword: true`.
+If two-pass does not expose the expected tool, check recent dashboard events for `two_pass_requested_tools`, `two_pass_hydrated_tools`, and `two_pass_phase`. If `gizmo_hydrate_tools` is missing from Hermes' registered tools, two-pass falls back to keyword mode when `two_pass.fallback_to_keyword: true`.
 
 Example:
 
 ```yaml
-tool_slimmer:
+gizmo:
   mode: two_pass
   always_include: [memory]
   two_pass:

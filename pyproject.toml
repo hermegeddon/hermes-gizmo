@@ -27,7 +27,7 @@ artifacts = [
 ]
 
 [project]
-name = "hermes-tool-slimmer"
+name = "hermes-gizmo"
 version = "0.7.0"
 description = "Hermes Agent plugin for deterministic tool-schema selection, diagnostics, and dashboard visibility"
 readme = "README.md"
@@ -68,14 +68,11 @@ semantic = [
 Homepage = "https://github.com/rzyns/hermes-gizmo"
 Repository = "https://github.com/rzyns/hermes-gizmo"
 Issues = "https://github.com/rzyns/hermes-gizmo/issues"
-Upstream = "https://github.com/alias8818/hermes-tool-slimmer"
 
 [project.entry-points."hermes_agent.plugins"]
-tool-slimmer = "hermes_tool_slimmer"
 gizmo = "hermes_gizmo"
 
 [project.scripts]
-hermes-tool-slimmer = "hermes_tool_slimmer.cli:main"
 hermes-gizmo = "hermes_gizmo.cli:main"
 
 [tool.ruff]
@@ -91,10 +88,9 @@ explicit_package_bases = true
 mypy_path = "src"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/hermes_gizmo", "src/hermes_tool_slimmer"]
+packages = ["src/hermes_gizmo"]
 include = [
   "/src/hermes_gizmo",
-  "/src/hermes_tool_slimmer",
   "/dashboard",
   "/dashboard-plugin",
 ]

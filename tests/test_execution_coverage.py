@@ -2,8 +2,8 @@ import argparse
 import json
 import sqlite3
 
-from hermes_tool_slimmer.cli import handle_cli, setup_argparse
-from hermes_tool_slimmer.execution_coverage import execution_coverage_report
+from hermes_gizmo.cli import handle_cli, setup_argparse
+from hermes_gizmo.execution_coverage import execution_coverage_report
 
 
 def _append_decision(path, *, session_id, platform="cli", execution_kind="kanban_worker", profile="default"):
@@ -60,9 +60,9 @@ def _create_board_run(home, *, board, profile, session_id, run_id=1):
 
 
 def test_execution_coverage_scans_default_and_profile_decision_logs(tmp_path):
-    _append_decision(tmp_path / "tool-slimmer" / "decisions.jsonl", session_id="root-session", profile="default")
+    _append_decision(tmp_path / "gizmo" / "decisions.jsonl", session_id="root-session", profile="default")
     _append_decision(
-        tmp_path / "profiles" / "frontend-eng" / "tool-slimmer" / "decisions.jsonl",
+        tmp_path / "profiles" / "frontend-eng" / "gizmo" / "decisions.jsonl",
         session_id="profile-session",
         profile="frontend-eng",
     )
@@ -77,7 +77,7 @@ def test_execution_coverage_scans_default_and_profile_decision_logs(tmp_path):
 
 def test_execution_coverage_joins_kanban_worker_session_ids_to_decisions(tmp_path):
     _append_decision(
-        tmp_path / "profiles" / "frontend-eng" / "tool-slimmer" / "decisions.jsonl",
+        tmp_path / "profiles" / "frontend-eng" / "gizmo" / "decisions.jsonl",
         session_id="20260625_173453_ead4ff",
         profile="frontend-eng",
     )
@@ -110,7 +110,7 @@ def test_execution_coverage_joins_kanban_worker_session_ids_to_decisions(tmp_pat
 
 
 def test_execution_coverage_cli_outputs_report(tmp_path, capsys):
-    _append_decision(tmp_path / "tool-slimmer" / "decisions.jsonl", session_id="root-session", profile="default")
+    _append_decision(tmp_path / "gizmo" / "decisions.jsonl", session_id="root-session", profile="default")
     parser = argparse.ArgumentParser()
     setup_argparse(parser)
     args = parser.parse_args(["execution-coverage", "--home", str(tmp_path)])
