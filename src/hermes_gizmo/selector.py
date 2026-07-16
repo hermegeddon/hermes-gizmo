@@ -13,7 +13,6 @@ from .native import NATIVE_TOOL_SEARCH_BRIDGE_NAMES
 from .policy import eligible_schemas
 from .tokenizer import tokenize
 from .types import Schema, SelectionResult, ToolDocument
-from .two_pass import HYDRATE_TOOL_NAME
 
 LOG = logging.getLogger(__name__)
 
@@ -22,14 +21,12 @@ SAFETY_TOOL_NAMES = (
     "gizmo_tool_search",
     "gizmo_tool_details",
     "gizmo_loaded_tools",
-    HYDRATE_TOOL_NAME,
 )
 NON_TASK_TOOL_NAMES = (
     "gizmo_request_full_tools",
     "gizmo_tool_search",
     "gizmo_tool_details",
     "gizmo_loaded_tools",
-    HYDRATE_TOOL_NAME,
     "gizmo_select",
     "gizmo_status",
     *NATIVE_TOOL_SEARCH_BRIDGE_NAMES,

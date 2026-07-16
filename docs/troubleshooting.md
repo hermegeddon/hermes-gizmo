@@ -150,23 +150,9 @@ gizmo:
 
 Use this only when that entry point should not receive those tools through Gizmo ranking. The full-tool fallback remains available when Hermes has registered it.
 
-## Experimental two-pass mode
+## Removed: two-pass mode
 
-Use `mode: two_pass` only when a deployment has very large tool catalogs or providers with tight TPM limits. It sends a compact catalog first, then relies on `gizmo_hydrate_tools` to request full schemas for multiple tools in one batch. The next request exposes those full schemas and can cache them for the session.
-
-If two-pass does not expose the expected tool, check recent dashboard events for `two_pass_requested_tools`, `two_pass_hydrated_tools`, and `two_pass_phase`. If `gizmo_hydrate_tools` is missing from Hermes' registered tools, two-pass falls back to keyword mode when `two_pass.fallback_to_keyword: true`.
-
-Example:
-
-```yaml
-gizmo:
-  mode: two_pass
-  always_include: [memory]
-  two_pass:
-    hydrate_limit: 8
-    cache_hydrated_tools: true
-    fallback_to_keyword: true
-```
+`mode: two_pass` and `gizmo_hydrate_tools` were removed on 2026-07-15 in favor of Hermes' native Tool Search for the lazy-loading use case. Configs that still set `mode: two_pass` load as `keyword` with a logged warning; stale `two_pass:` sections are ignored. Historical decision-log rows with `two_pass_*` fields remain readable.
 
 ## Selector errors
 

@@ -19,8 +19,7 @@ from hermes_gizmo.cli import _load_prompts, _load_schemas, _tool_names, diagnost
 from hermes_gizmo.integration import FALLBACK_INSTRUCTION, maybe_register_selector_hook, pre_llm_diagnostic_hook, select_tool_schemas_callback
 from hermes_gizmo.metrics import read_decisions, summarize_decisions
 from hermes_gizmo.index_store import IndexStore
-from hermes_gizmo.tools import FULL_TOOLS_REQUEST_MARKER, _live_hermes_schemas, gizmo_hydrate_tools, gizmo_request_full_tools, gizmo_select, gizmo_status
-from hermes_gizmo.two_pass import HYDRATE_REQUEST_MARKER
+from hermes_gizmo.tools import FULL_TOOLS_REQUEST_MARKER, _live_hermes_schemas, gizmo_request_full_tools, gizmo_select, gizmo_status
 
 
 def _patch_dashboard_modules(module, monkeypatch):
@@ -71,7 +70,7 @@ def test_plugin_register_wires_tools_commands_and_hooks(monkeypatch):
     assert ("tool", "gizmo_status") in calls
     assert ("tool", "gizmo_select") in calls
     assert ("tool", "gizmo_request_full_tools") in calls
-    assert ("tool", "gizmo_hydrate_tools") in calls
+    assert ("tool", "gizmo_hydrate_tools") not in calls  # removed 2026-07-15
     assert ("command", "gizmo") in calls
     assert ("cli", "gizmo") in calls
     assert ("hook", "select_tool_schemas") in calls
@@ -82,12 +81,10 @@ def test_plugin_handlers_return_json_strings(monkeypatch, tmp_path):
     status = gizmo_status({})
     select = gizmo_select({"query": "read", "schemas": [{"name": "read_file", "description": "Read"}]})
     request_full = gizmo_request_full_tools({"reason": "missing skill tool"})
-    hydrate = gizmo_hydrate_tools({"tools": ["web_search"], "reason": "need web"})
     slash = handle_slash_command("select read", schemas=[{"name": "read_file", "description": "Read"}])
     assert json.loads(status)["ok"] is True
     assert json.loads(select)["ok"] is True
     assert json.loads(request_full)[FULL_TOOLS_REQUEST_MARKER] is True
-    assert json.loads(hydrate)[HYDRATE_REQUEST_MARKER] is True
     assert json.loads(slash)["ok"] is True
 
 
@@ -240,7 +237,7 @@ def test_select_tool_schemas_injects_recovery_tools_for_acp_filtered_catalog(mon
     assert "gizmo_tool_search" in names
     assert "gizmo_tool_details" in names
     assert "gizmo_loaded_tools" in names
-    assert "gizmo_hydrate_tools" in names
+    assert "gizmo_hydrate_tools" not in names  # removed 2026-07-15
 
 
 def test_cli_tool_names_tolerates_null_function_wrapper():

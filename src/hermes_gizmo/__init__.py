@@ -3,7 +3,6 @@ from __future__ import annotations
 from .integration import maybe_register_selector_hook
 from .schemas import (
     CLEAR_VISIBLE_SKILL_PINS_SCHEMA,
-    HYDRATE_TOOLS_SCHEMA,
     LOADED_TOOLS_SCHEMA,
     REQUEST_FULL_SKILL_INDEX_SCHEMA,
     REQUEST_FULL_TOOLS_SCHEMA,
@@ -16,7 +15,7 @@ from .schemas import (
     VISIBLE_SKILL_PINS_SCHEMA,
 )
 from .session_tools import gizmo_loaded_tools, gizmo_tool_details, gizmo_tool_search
-from .tools import gizmo_hydrate_tools, gizmo_request_full_tools, gizmo_select, gizmo_status
+from .tools import gizmo_request_full_tools, gizmo_select, gizmo_status
 
 __all__ = ["register"]
 __version__ = "0.7.0"
@@ -46,7 +45,6 @@ def register(ctx):
         ("gizmo_tool_search", TOOL_SEARCH_SCHEMA, gizmo_tool_search),
         ("gizmo_tool_details", TOOL_DETAILS_SCHEMA, gizmo_tool_details),
         ("gizmo_loaded_tools", LOADED_TOOLS_SCHEMA, gizmo_loaded_tools),
-        ("gizmo_hydrate_tools", HYDRATE_TOOLS_SCHEMA, gizmo_hydrate_tools),
         ("gizmo_skill_search", SKILL_SEARCH_SCHEMA, gizmo_skill_search),
         ("gizmo_skill_details", SKILL_DETAILS_SCHEMA, gizmo_skill_details),
         ("gizmo_visible_skill_pins", VISIBLE_SKILL_PINS_SCHEMA, gizmo_visible_skill_pins),

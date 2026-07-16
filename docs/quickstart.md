@@ -152,7 +152,7 @@ Start with `dry_run: true`. This lets you inspect selections without changing pr
 | `eager` | Sends full catalog; useful for debugging. |
 | `anthropic_tool_search` | Only for Anthropic native provider with Tool Search support. |
 
-Experimental `mode: two_pass` is for large catalogs or TPM-capped providers. The first request gets only always-included tools plus `gizmo_hydrate_tools`, whose schema contains a compact deterministic catalog. If the model needs tools, it asks for multiple full schemas in one hydration batch and the next request exposes only those schemas. Start with `keyword`; switch to `two_pass` only when the extra round trip is worth the schema savings.
+For very large catalogs where lazy loading beats one-pass selection, use Hermes' native Tool Search (`tools.tool_search` in Hermes config) instead — Gizmo detects it and will not double-slim. (Gizmo's former experimental `two_pass` mode was removed in favor of the native path.)
 
 ## 3. Check installation
 

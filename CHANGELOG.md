@@ -7,12 +7,14 @@
 ### Changed
 
 - Completed the Hermes Gizmo hard rename across the Python distribution and namespace, plugin discovery, tools, commands, config/state paths, dashboard routes, scripts, documentation, and tests.
+- The `min_estimated_reduction_percent` reduction floor now applies uniformly to all selection modes (the former two-pass carve-out is gone).
 
 ### Deprecated
 
 ### Removed
 
 - Removed the former compatibility package, plugin, command, dashboard, and runtime registration aliases.
+- Removed the experimental `two_pass` selection mode, the `gizmo_hydrate_tools` tool, the `two_pass` config section, and the in-memory hydrated-tool session cache. Hermes native Tool Search covers the lazy-loading use case; Gizmo detects the native bridge and composes with it. Configs still setting `mode: two_pass` fall back to `keyword` with a logged warning; stale `two_pass:` sections are ignored; historical decision-log rows with `two_pass_*` fields remain readable.
 
 ### Fixed
 

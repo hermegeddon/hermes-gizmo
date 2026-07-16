@@ -5,7 +5,6 @@ provides_tools:
   - gizmo_select
   - gizmo_status
   - gizmo_request_full_tools
-  - gizmo_hydrate_tools
   - gizmo_loaded_tools
   - gizmo_tool_search
   - gizmo_tool_details

@@ -140,21 +140,11 @@
     const latestMetrics = latestDecision && latestDecision.metrics ? latestDecision.metrics : {};
     const latestSelected = latestMetrics.selected || [];
     const latestCandidates = latestMetrics.top_candidates || [];
-    const twoPass = config.two_pass || {};
-    const recentTwoPass = recent.filter(function (event) {
+    const nativeSkips = recent.filter(function (event) {
       const metrics = event && event.metrics ? event.metrics : {};
-      return metrics.mode === "two_pass" || Boolean(metrics.two_pass_phase || metrics.two_pass_fallback);
+      return metrics.skip_reason === "native_hermes_tool_search_active" || Boolean(metrics.native_hermes_tool_search);
     });
-    const latestTwoPass = recentTwoPass.length ? recentTwoPass[recentTwoPass.length - 1].metrics || {} : {};
-    const twoPassFallbacks = recentTwoPass.filter(function (event) {
-      return Boolean(event.metrics && event.metrics.two_pass_fallback);
-    }).length;
-    const twoPassMisses = recentTwoPass.filter(function (event) {
-      const metrics = event.metrics || {};
-      const requested = metrics.two_pass_requested_tools || [];
-      const hydrated = metrics.two_pass_hydrated_tools || [];
-      return requested.length > hydrated.length;
-    }).length;
+    const latestNativeSkip = nativeSkips.length ? nativeSkips[nativeSkips.length - 1].metrics || {} : {};
     const tuneProfile = latestDecision && latestDecision.context && latestDecision.context.platform
       ? latestDecision.context.platform
       : "default";
@@ -420,20 +410,15 @@
               React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Top K"), React.createElement("span", { className: "font-courier" }, String(config.top_k ?? "unknown"))),
               React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Minimum Tools"), React.createElement("span", { className: "font-courier" }, String(config.min_total_tools ?? 0))),
               React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Minimum Reduction"), React.createElement("span", { className: "font-courier" }, String(config.min_estimated_reduction_percent ?? 0) + "%")),
-              React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Two-pass Hydrate Limit"), React.createElement("span", { className: "font-courier" }, String(twoPass.hydrate_limit ?? "off"))),
             ),
           ),
           React.createElement(Card, null,
-            React.createElement(CardHeader, null, React.createElement(CardTitle, null, "Two-Pass")),
+            React.createElement(CardHeader, null, React.createElement(CardTitle, null, "Native Tool Search")),
             React.createElement(CardContent, { className: "grid gap-2 text-sm" },
-              config.mode !== "two_pass" && recentTwoPass.length === 0 && React.createElement("div", { className: "gizmo-muted" }, "Experimental two-pass mode is not active."),
-              React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Recent Events"), React.createElement("span", { className: "font-courier" }, String(recentTwoPass.length))),
-              React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Last Phase"), React.createElement("span", { className: "font-courier" }, String(latestTwoPass.two_pass_phase || "none"))),
-              React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Fallbacks"), React.createElement("span", { className: "font-courier" }, String(twoPassFallbacks))),
-              React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Misses"), React.createElement("span", { className: "font-courier" }, String(twoPassMisses))),
-              React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Catalog Tokens"), React.createElement("span", { className: "font-courier" }, String(latestTwoPass.two_pass_catalog_approx_tokens || 0))),
-              React.createElement("div", { className: "gizmo-muted" }, "Hydrated"),
-              React.createElement(ToolPills, { tools: latestTwoPass.two_pass_hydrated_tools || [], limit: 6 }),
+              nativeSkips.length === 0 && React.createElement("div", { className: "gizmo-muted" }, "No recent requests were deferred to Hermes native Tool Search."),
+              React.createElement("div", { className: "flex justify-between gap-3" }, React.createElement("span", { className: "gizmo-muted" }, "Recent Native Skips"), React.createElement("span", { className: "font-courier" }, String(nativeSkips.length))),
+              React.createElement("div", { className: "gizmo-muted" }, "Bridge Tools"),
+              React.createElement(ToolPills, { tools: latestNativeSkip.native_hermes_bridge_tools || [], limit: 6 }),
             ),
           ),
           React.createElement(Card, null,

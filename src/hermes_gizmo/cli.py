@@ -144,11 +144,6 @@ def privacy_inventory() -> dict[str, object]:
             "selected_scores",
             "top_candidates",
             "expanded_query_token_count",
-            "two_pass_catalog_tools",
-            "two_pass_catalog_approx_tokens",
-            "two_pass_hydrated_tools",
-            "two_pass_requested_tools",
-            "two_pass_phase",
             "native_hermes_tool_search",
             "native_hermes_bridge_tools",
         ],
@@ -207,7 +202,6 @@ def diagnostic_report(limit: int = 200) -> dict[str, object]:
             "always_include": cfg.always_include,
             "always_exclude": cfg.disabled_tools,
             "profiles": sorted(cfg.profiles),
-            "two_pass": cfg.two_pass.__dict__,
         },
         "doctor": run_doctor(),
         "index": {
@@ -242,8 +236,6 @@ def diagnostic_report(limit: int = 200) -> dict[str, object]:
                     "skip_reason": last_metrics.get("skip_reason"),
                     "selection_ms": last_metrics.get("selection_ms"),
                     "selected": last_metrics.get("selected"),
-                    "two_pass_phase": last_metrics.get("two_pass_phase"),
-                    "two_pass_fallback": last_metrics.get("two_pass_fallback"),
                 },
             },
         },
@@ -358,7 +350,7 @@ def run_doctor(
         checks["config"] = _check(
             "pass",
             "gizmo config is valid",
-            {"mode": cfg.mode, "top_k": cfg.top_k, "two_pass": cfg.two_pass.__dict__},
+            {"mode": cfg.mode, "top_k": cfg.top_k},
         )
     except Exception as exc:
         checks["config"] = _check("fail", "gizmo config is invalid", str(exc))
@@ -460,11 +452,6 @@ def run_doctor(
             )
     else:
         checks["anthropic_tool_search"] = _check("pass", "Anthropic Tool Search mode is not active")
-    checks["two_pass"] = _check(
-        "pass" if cfg.mode == "two_pass" else "pass",
-        "Experimental two_pass mode is active" if cfg.mode == "two_pass" else "Experimental two_pass mode is not active",
-        cfg.two_pass.__dict__,
-    )
     return {"ok": all(v["status"] != "fail" for v in checks.values()), "checks": checks}
 
 
@@ -552,7 +539,6 @@ def handle_cli(args: argparse.Namespace) -> int:
                     "mode": cfg.mode,
                     "top_k": cfg.top_k,
                     "min_score": cfg.min_score,
-                    "two_pass": cfg.two_pass.__dict__,
                     "native_hermes_tool_search": native_tool_search_status(live_schemas or _schemas_from_index(index)),
                     "index_path": str(store.path),
                     "total_tools_indexed": index.get("total_tools", 0),

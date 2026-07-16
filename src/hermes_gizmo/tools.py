@@ -7,7 +7,6 @@ from typing import Any
 from .config import GizmoConfig, load_config
 from .index_store import IndexStore
 from .selector import ToolSelector
-from .two_pass import hydration_response
 
 FULL_TOOLS_REQUEST_MARKER = "gizmo_full_tools_requested"
 
@@ -110,7 +109,6 @@ def gizmo_status(args: dict, **kwargs: Any) -> str:
                 "enabled": cfg.enabled,
                 "mode": cfg.mode,
                 "top_k": cfg.top_k,
-                "two_pass": cfg.two_pass.__dict__,
                 "index": {
                     "path": str(store.path),
                     "exists": index is not None,
@@ -137,25 +135,6 @@ def gizmo_request_full_tools(args: dict, **kwargs: Any) -> str:
     return _json(payload)
 
 
-def gizmo_hydrate_tools(args: dict, **kwargs: Any) -> str:
-    tools = args.get("tools") if isinstance(args, dict) else None
-    if isinstance(tools, str):
-        requested = [tools]
-    elif isinstance(tools, list):
-        requested = [str(item) for item in tools if item is not None]
-    else:
-        requested = []
-    reason = args.get("reason") if isinstance(args, dict) else None
-    cfg = load_config(args.get("config_path")) if isinstance(args, dict) else load_config()
-    return _json(
-        hydration_response(
-            requested,
-            reason=str(reason) if reason else None,
-            limit=cfg.two_pass.hydrate_limit,
-        )
-    )
-
-
 def gizmo_select(args: dict, **kwargs: Any) -> str:
     try:
         cfg = load_config(args.get("config_path"))
@@ -165,7 +144,7 @@ def gizmo_select(args: dict, **kwargs: Any) -> str:
             return _json({"ok": False, "error": "mode_not_allowed", "message": "eager mode is not available through the model-callable selector."})
         if mode is not None:
             cfg = GizmoConfig.from_mapping(
-                {**cfg.__dict__, "mode": mode, "anthropic": cfg.anthropic.__dict__, "two_pass": cfg.two_pass.__dict__}
+                {**cfg.__dict__, "mode": mode, "anthropic": cfg.anthropic.__dict__}
             )
         schemas, schema_source = _resolve_schemas(args, kwargs)
         if not schemas:
