@@ -68,7 +68,6 @@ def recommended_config(
         "always_exclude": cfg.disabled_tools,
         "disabled_toolsets": cfg.disabled_toolsets,
         "never_defer": _present(["terminal", "read_file"], tools),
-        "include_mcp_tools": cfg.include_mcp_tools,
         "include_native_tools": cfg.include_native_tools,
         "log_decisions": True,
         "min_total_tools": 0,

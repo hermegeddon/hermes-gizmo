@@ -34,7 +34,9 @@ SCHEMAS = [
 
 class TestSchemaIsEligible:
     """B1: schema-level eligibility must enforce disabled_tools, disabled_toolsets,
-    include_mcp_tools, include_native_tools, and duplicate-name ambiguity."""
+    include_native_tools, and duplicate-name ambiguity. MCP schemas are always
+    eligible: Gizmo never drops them since the 2026-07-27 retirement (native
+    Hermes tool_search owns MCP disclosure)."""
 
     def test_disabled_tool(self):
         cfg = GizmoConfig(disabled_tools=["terminal"])
@@ -52,17 +54,21 @@ class TestSchemaIsEligible:
         cfg = GizmoConfig(disabled_toolsets=["github"])
         assert _schema_is_eligible({"name": "slack_send_message", "toolset": "slack"}, cfg) is True
 
-    def test_mcp_excluded(self):
-        cfg = GizmoConfig(include_mcp_tools=False)
-        assert _schema_is_eligible({"name": "mcp_server_foo.tool_a", "toolset": "mcp:foo"}, cfg) is False
+    def test_mcp_always_eligible(self):
+        cfg = GizmoConfig()
+        assert _schema_is_eligible({"name": "mcp_server_foo.tool_a", "toolset": "mcp:foo"}, cfg) is True
 
     def test_native_excluded(self):
         cfg = GizmoConfig(include_native_tools=False)
         assert _schema_is_eligible({"name": "terminal", "toolset": "native"}, cfg) is False
 
-    def test_mcp_included(self):
-        cfg = GizmoConfig(include_mcp_tools=True)
+    def test_mcp_eligible_even_without_native_tools(self):
+        cfg = GizmoConfig(include_native_tools=False)
         assert _schema_is_eligible({"name": "mcp_server_foo.tool_a", "toolset": "mcp:foo"}, cfg) is True
+
+    def test_disabled_mcp_still_excluded(self):
+        cfg = GizmoConfig(disabled_tools=["mcp_server_foo.tool_a"])
+        assert _schema_is_eligible({"name": "mcp_server_foo.tool_a", "toolset": "mcp:foo"}, cfg) is False
 
 
 class TestToolSearchEligibility:
@@ -94,16 +100,16 @@ class TestToolSearchEligibility:
         assert terminal_entries[0]["ambiguous"] is True
         assert terminal_entries[0]["can_load"] is False
 
-    def test_mcp_filter_omits_when_disabled(self, monkeypatch):
-        cfg = GizmoConfig(include_mcp_tools=False, progressive_enabled=True)
+    def test_mcp_entries_remain_loadable(self, monkeypatch):
+        cfg = GizmoConfig(progressive_enabled=True)
         monkeypatch.setattr(
             "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
         result = json.loads(gizmo_tool_search({"query": "mcp"}, schemas=SCHEMAS))
         mcp_entry = next((r for r in result["results"] if r["name"] == "mcp_server_foo.tool_a"), None)
         assert mcp_entry is not None
-        assert mcp_entry["disabled"] is True
-        assert mcp_entry["can_load"] is False
+        assert mcp_entry["disabled"] is False
+        assert mcp_entry["can_load"] is True
 
 
 class TestToolDetailsEligibility:
@@ -150,9 +156,8 @@ class TestToolDetailsEligibility:
         assert result["ok"] is False
         assert result["error"] == "tool_ambiguous"
 
-    def test_load_mcp_excluded_rejected(self, monkeypatch):
+    def test_load_mcp_succeeds(self, monkeypatch, tmp_path):
         cfg = GizmoConfig(
-            include_mcp_tools=False,
             progressive_enabled=True,
             progressive_max_loaded=10,
             progressive_ttl_seconds=3600,
@@ -160,14 +165,18 @@ class TestToolDetailsEligibility:
         monkeypatch.setattr(
             "hermes_gizmo.session_tools.load_config", lambda *_a, **_k: cfg
         )
+        monkeypatch.setattr(
+            "hermes_gizmo.session_tools.hermes_home",
+            lambda: tmp_path,
+        )
         result = json.loads(
             gizmo_tool_details(
                 {"name": "mcp_server_foo.tool_a", "load": True},
                 schemas=SCHEMAS,
             )
         )
-        assert result["ok"] is False
-        assert result["error"] == "tool_disabled"
+        assert result["ok"] is True
+        assert result["load_action"] == "added"
 
     def test_eligible_tool_load_succeeds(self, monkeypatch, tmp_path):
         cfg = GizmoConfig(

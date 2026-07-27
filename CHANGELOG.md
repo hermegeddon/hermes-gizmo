@@ -13,6 +13,7 @@
 
 ### Removed
 
+- Retired MCP-schema selection (2026-07-27). Gizmo never ranks or drops MCP schemas anymore: native Hermes tool_search owns MCP disclosure (tiered progressive disclosure always defers MCP/plugin tools), so eligible MCP schemas pass through every selection untouched and are reported as `mcp_passthrough` in decision metrics. The `include_mcp_tools` config key was removed and is ignored with a logged warning; `disabled_tools`/`disabled_toolsets` still apply to MCP schemas. In the `anthropic_tool_search` lane MCP tools are now always deferred (never hot-picked by relevance). Core-tool slimming, the skills lane, recovery tools, and telemetry are unchanged.
 - Removed the former compatibility package, plugin, command, dashboard, and runtime registration aliases.
 - Removed the experimental `two_pass` selection mode, the `gizmo_hydrate_tools` tool, the `two_pass` config section, and the in-memory hydrated-tool session cache. Hermes native Tool Search covers the lazy-loading use case; Gizmo detects the native bridge and composes with it. Configs still setting `mode: two_pass` fall back to `keyword` with a logged warning; stale `two_pass:` sections are ignored; historical decision-log rows with `two_pass_*` fields remain readable.
 

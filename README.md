@@ -220,7 +220,6 @@ gizmo:
   always_include: [terminal, read_file, write_file, patch, search_files]
   always_exclude: []   # alias for disabled_tools; useful for noisy tools in text-only deployments
   never_defer: [terminal, read_file]
-  include_mcp_tools: true
   include_native_tools: true
   log_decisions: true
   min_total_tools: 0
@@ -302,7 +301,8 @@ If none exists, active schema slimming requires the installer/core patch to add 
 - `always_exclude` is a user-facing alias for `disabled_tools`. Use it when a tool is too noisy for a deployment and should only appear through Hermes outside Hermes Gizmo's ranked set.
 - `gizmo_request_full_tools` is always kept available when Hermes has registered it. If a skill or task needs a hidden tool, the model can call it to make the next provider request use the full schema list instead of inventing a substitute workflow.
 - `top_k` applies after `always_include`; always-included tools do not count against the `top_k` budget. `top_k: 0` is treated as an explicit request to select no ranked tools, so it does not fail open to the full catalog.
-- `disabled_tools`, `disabled_toolsets`, `include_mcp_tools`, and `include_native_tools` are respected before ranking.
+- `disabled_tools`, `disabled_toolsets`, and `include_native_tools` are respected before ranking.
+- MCP schemas are never ranked or dropped (2026-07-27 retirement): native Hermes tool_search owns MCP disclosure, so eligible MCP schemas always pass through untouched and are reported in decision metrics as `mcp_passthrough`. The former `include_mcp_tools` key is ignored with a logged warning.
 - `profiles` let Slack, Telegram, CLI, cron, and webhook entry points use different `top_k`, include, and exclude lists without making every user interface share the same tradeoff.
 - Low-information messages such as `hello`, `ping`, `thanks`, or numeric retry nudges do not rank task tools. They keep only `always_include` plus the full-tool fallback.
 - `min_score` prevents tiny positive keyword matches from filling every `top_k` slot.

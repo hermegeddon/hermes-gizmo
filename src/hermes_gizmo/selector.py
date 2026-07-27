@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from difflib import SequenceMatcher
 from typing import Any, Iterable
 
@@ -10,7 +10,7 @@ from .bm25 import BM25
 from .config import GizmoConfig
 from .corpus import build_corpus, tool_name
 from .native import NATIVE_TOOL_SEARCH_BRIDGE_NAMES
-from .policy import eligible_schemas
+from .policy import eligible_schemas, split_mcp_passthrough
 from .tokenizer import tokenize
 from .types import Schema, SelectionResult, ToolDocument
 
@@ -91,8 +91,10 @@ class ToolSelector:
             return SelectionResult(self.config.mode, schemas, [tool_name(s) for s in schemas], {}, len(schemas), [])
         try:
             if self.config.mode == "semantic_hybrid":
-                return self._select_semantic_hybrid(user_message, schemas)
-            return self._select_keyword(user_message, schemas)
+                result = self._select_semantic_hybrid(user_message, schemas)
+            else:
+                result = self._select_keyword(user_message, schemas)
+            return self._finalize_mcp_passthrough(result, schemas)
         except Exception as exc:
             if self.config.fail_open:
                 return SelectionResult(self.config.mode, schemas, [tool_name(s) for s in schemas], {}, len(schemas), [], fail_open=True, reason=str(exc))
@@ -101,12 +103,38 @@ class ToolSelector:
     def _eligible(self, schemas: Iterable[Schema]) -> list[Schema]:
         return eligible_schemas(schemas, self.config)
 
+    def _finalize_mcp_passthrough(self, result: SelectionResult, schemas: list[Schema]) -> SelectionResult:
+        """Append eligible MCP schemas to the selection untouched.
+
+        Since the 2026-07-27 retirement Gizmo never ranks or drops MCP
+        schemas: native Hermes tool_search owns MCP disclosure (it always
+        defers MCP/plugin tools). Eligible MCP schemas therefore ship with
+        every selection; their names are exposed in
+        ``metadata["mcp_passthrough"]`` so callers (e.g. the
+        anthropic_tool_search lane and decision metrics) can distinguish
+        ranked picks from passthrough.
+        """
+        _, passthrough = split_mcp_passthrough(self._eligible(schemas))
+        if not passthrough:
+            return result
+        present = {tool_name(s) for s in result.selected if isinstance(s, dict)}
+        extra = [s for s in passthrough if tool_name(s) not in present]
+        selected = [*result.selected, *extra]
+        metadata = {**result.metadata, "mcp_passthrough": [tool_name(s) for s in passthrough]}
+        return replace(
+            result,
+            selected=selected,
+            selected_names=[tool_name(s) for s in selected],
+            metadata=metadata,
+        )
+
     def _select_semantic_hybrid(self, user_message: str, schemas: list[Schema]) -> SelectionResult:
         from .embeddings import EmbeddingCache, ReciprocalRankFusion, SemanticRanker
 
         eligible = self._eligible(schemas)
+        selectable, _ = split_mcp_passthrough(eligible)
         schemas_by_name: dict[str, list[Schema]] = defaultdict(list)
-        for schema in eligible:
+        for schema in selectable:
             schemas_by_name[tool_name(schema)].append(schema)
         duplicate_names = sorted(name for name, matches in schemas_by_name.items() if len(matches) > 1)
         if duplicate_names:
@@ -207,8 +235,9 @@ class ToolSelector:
 
     def _select_keyword(self, user_message: str, schemas: list[Schema]) -> SelectionResult:
         eligible = self._eligible(schemas)
+        selectable, _ = split_mcp_passthrough(eligible)
         schemas_by_name: dict[str, list[Schema]] = defaultdict(list)
-        for schema in eligible:
+        for schema in selectable:
             schemas_by_name[tool_name(schema)].append(schema)
         duplicate_names = sorted(name for name, matches in schemas_by_name.items() if len(matches) > 1)
         if duplicate_names:

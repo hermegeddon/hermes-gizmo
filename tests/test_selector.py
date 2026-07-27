@@ -55,8 +55,10 @@ def test_selector_always_includes_progressive_discovery_tools_when_available():
         "gizmo_tool_search",
         "gizmo_tool_details",
         "gizmo_loaded_tools",
+        "mcp_open_design_start_run",
     ]
-    assert result.always_included == result.selected_names
+    assert result.always_included == result.selected_names[:4]
+    assert result.metadata["mcp_passthrough"] == ["mcp_open_design_start_run"]
     assert not {"gizmo_request_full_tools", "gizmo_tool_search", "gizmo_tool_details", "gizmo_loaded_tools"} & set(result.scores)
 
 
@@ -241,32 +243,53 @@ def test_browser_intent_downranks_cronjob_and_memory_noise():
     assert result.score_details["memory"]["context_penalty"] < 0
 
 
-def test_selector_respects_include_mcp_tools_flag():
-    cfg = GizmoConfig(top_k=5, always_include=[], include_mcp_tools=False)
+def test_mcp_schema_passes_through_unranked():
+    cfg = GizmoConfig(top_k=5, always_include=[])
+    schemas = [*SCHEMAS, {"name": "mcp_read_issue", "toolset": "mcp", "description": "Read MCP issue"}]
+    result = ToolSelector(cfg).select("mcp issue", schemas)
+    assert "mcp_read_issue" in result.selected_names
+    assert "mcp_read_issue" not in result.scores
+    assert result.metadata["mcp_passthrough"] == ["mcp_read_issue"]
+
+
+def test_mcp_passthrough_for_mcp_server_metadata():
+    cfg = GizmoConfig(top_k=5, always_include=[])
+    schemas = [*SCHEMAS, {"name": "issue_read", "mcp_server": "github", "description": "Read issue"}]
+    result = ToolSelector(cfg).select("read github issue", schemas)
+    assert "issue_read" in result.selected_names
+    assert "issue_read" not in result.scores
+
+
+def test_mcp_passthrough_for_hermes_mcp_name_prefix():
+    cfg = GizmoConfig(top_k=5, always_include=[])
+    schemas = [*SCHEMAS, {"name": "mcp_github_read_issue", "description": "Read issue"}]
+    result = ToolSelector(cfg).select("read github issue", schemas)
+    assert "mcp_github_read_issue" in result.selected_names
+    assert "mcp_github_read_issue" not in result.scores
+
+
+def test_mcp_passthrough_for_plain_server_metadata():
+    cfg = GizmoConfig(top_k=5, always_include=[])
+    schemas = [*SCHEMAS, {"name": "issue_read", "server": "github", "description": "Read issue"}]
+    result = ToolSelector(cfg).select("read github issue", schemas)
+    assert "issue_read" in result.selected_names
+    assert "issue_read" not in result.scores
+
+
+def test_mcp_passthrough_does_not_consume_top_k():
+    cfg = GizmoConfig(top_k=1, always_include=[])
+    schemas = [*SCHEMAS, {"name": "mcp_github_read_issue", "toolset": "mcp:github", "description": "GitHub code search issue"}]
+    result = ToolSelector(cfg).select("github code search", schemas)
+    assert "github_search_code" in result.selected_names
+    assert "mcp_github_read_issue" in result.selected_names
+
+
+def test_disabled_mcp_schema_stays_dropped():
+    cfg = GizmoConfig(top_k=5, always_include=[], disabled_tools=["mcp_read_issue"])
     schemas = [*SCHEMAS, {"name": "mcp_read_issue", "toolset": "mcp", "description": "Read MCP issue"}]
     result = ToolSelector(cfg).select("mcp issue", schemas)
     assert "mcp_read_issue" not in result.selected_names
-
-
-def test_selector_respects_include_mcp_tools_for_mcp_server_metadata():
-    cfg = GizmoConfig(top_k=5, always_include=[], include_mcp_tools=False)
-    schemas = [*SCHEMAS, {"name": "issue_read", "mcp_server": "github", "description": "Read issue"}]
-    result = ToolSelector(cfg).select("read github issue", schemas)
-    assert "issue_read" not in result.selected_names
-
-
-def test_selector_respects_include_mcp_tools_for_hermes_mcp_name_prefix():
-    cfg = GizmoConfig(top_k=5, always_include=[], include_mcp_tools=False)
-    schemas = [*SCHEMAS, {"name": "mcp_github_read_issue", "description": "Read issue"}]
-    result = ToolSelector(cfg).select("read github issue", schemas)
-    assert "mcp_github_read_issue" not in result.selected_names
-
-
-def test_selector_respects_include_mcp_tools_for_plain_server_metadata():
-    cfg = GizmoConfig(top_k=5, always_include=[], include_mcp_tools=False)
-    schemas = [*SCHEMAS, {"name": "issue_read", "server": "github", "description": "Read issue"}]
-    result = ToolSelector(cfg).select("read github issue", schemas)
-    assert "issue_read" not in result.selected_names
+    assert "mcp_read_issue" not in result.metadata.get("mcp_passthrough", [])
 
 
 def test_empty_query_fails_open_instead_of_arbitrary_tool():

@@ -15,7 +15,6 @@ gizmo:
   never_defer:
     - terminal
     - read_file
-  include_mcp_tools: true
   include_native_tools: true
   log_decisions: true
   min_total_tools: 20

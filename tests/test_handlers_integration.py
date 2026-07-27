@@ -824,8 +824,13 @@ def test_anthropic_tool_search_guardrail_uses_hot_set_metrics(monkeypatch, tmp_p
     assert any(schema.get("defer_loading") is True for schema in out[1:])
     event = read_decisions()[0]
     assert event["metrics"]["metric_basis"] == "hot_set"
-    assert event["metrics"]["selected"] == ["github_search_code"]
+    # Since the 2026-07-27 MCP retirement, MCP tools are never hot-picked by
+    # relevance: they are always deferred to the provider's tool search. The
+    # hot set therefore only contains native tools.
+    assert event["metrics"]["selected"] == ["read_file"]
+    assert event["metrics"]["mcp_passthrough"] == ["github_search_code", "slack_send_message"]
     assert event["metrics"]["anthropic_payload_tools"] == 4
+    assert event["metrics"]["anthropic_deferred_tools"] == 2
     assert event["metrics"].get("skipped") is not True
 
 
@@ -1091,10 +1096,20 @@ def test_mcp_named_like_native_tool_search_does_not_force_skip(monkeypatch, tmp_
         "model",
         "tui",
         session_id="fake-native-tool-search-test",
-        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+        config=GizmoConfig(
+            top_k=1,
+            always_include=[],
+            min_total_tools=0,
+            log_decisions=False,
+            min_estimated_reduction_percent=0,
+        ),
     )
 
-    assert selected == [schemas[3]]
+    # A real native bridge would make the hook return None (stand down). The
+    # spoofed MCP bridge names must NOT trigger that: Gizmo still runs its own
+    # selection. Since the 2026-07-27 retirement the MCP schemas ship as
+    # unranked passthrough after the ranked native pick.
+    assert selected == [schemas[3], schemas[0], schemas[1], schemas[2]]
 
 
 def test_doctor_reports_invalid_config_without_crashing(tmp_path):

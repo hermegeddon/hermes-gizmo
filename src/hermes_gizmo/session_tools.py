@@ -232,10 +232,10 @@ def _schema_is_eligible(schema: Schema, cfg: GizmoConfig) -> bool:
         return False
     if toolset and toolset in cfg.disabled_toolsets:
         return False
-    is_mcp = is_mcp_schema(schema)
-    if is_mcp and not cfg.include_mcp_tools:
-        return False
-    if not is_mcp and not cfg.include_native_tools:
+    # MCP schemas are always shippable: since the 2026-07-27 retirement Gizmo
+    # never drops them (native Hermes tool_search owns MCP disclosure), so
+    # they stay eligible for discovery and progressive load.
+    if not is_mcp_schema(schema) and not cfg.include_native_tools:
         return False
     return True
 

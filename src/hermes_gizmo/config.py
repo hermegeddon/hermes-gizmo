@@ -18,6 +18,12 @@ VALID_MODES = {"eager", "keyword", "hybrid", "anthropic_tool_search", "semantic_
 # "keyword" with a logged warning instead of failing validation, so stale
 # profile overlays or restored config backups cannot break the selector hook.
 REMOVED_MODES = {"two_pass"}
+# Config keys that used to exist. Values are ignored with a logged warning so
+# stale configs or restored backups cannot break the selector hook.
+# - include_mcp_tools: removed 2026-07-27 — Gizmo no longer selects or drops
+#   MCP schemas; they always pass through (native Hermes tool_search owns MCP
+#   disclosure via its always-defer tiered progressive disclosure).
+REMOVED_KEYS = ("include_mcp_tools",)
 _LIST_FIELDS = {
     "always_exclude",
     "always_include",
@@ -25,7 +31,7 @@ _LIST_FIELDS = {
     "disabled_tools",
     "disabled_toolsets",
 }
-_BOOL_FIELDS = {"enabled", "include_mcp_tools", "include_native_tools", "log_decisions", "fail_open", "dry_run", "semantic_cache_enabled", "progressive_enabled"}
+_BOOL_FIELDS = {"enabled", "include_native_tools", "log_decisions", "fail_open", "dry_run", "semantic_cache_enabled", "progressive_enabled"}
 _ANTHROPIC_LIST_FIELDS = {"never_defer"}
 _ANTHROPIC_BOOL_FIELDS = {"defer_mcp_tools", "defer_native_tools", "tool_search_supported"}
 _PROFILE_ALIASES = {
@@ -57,7 +63,6 @@ class GizmoConfig:
     never_defer: list[str] = field(default_factory=lambda: ["terminal", "read_file"])
     disabled_tools: list[str] = field(default_factory=list)
     disabled_toolsets: list[str] = field(default_factory=list)
-    include_mcp_tools: bool = True
     include_native_tools: bool = True
     log_decisions: bool = True
     fail_open: bool = True
@@ -87,6 +92,13 @@ class GizmoConfig:
         profiles_raw = raw.pop("profiles", {}) or {}
         anthropic_raw = raw.pop("anthropic", {}) or {}
         raw.pop("two_pass", None)  # removed 2026-07-15; tolerated in old configs
+        for removed_key in REMOVED_KEYS:
+            if removed_key in raw:
+                LOG.warning(
+                    "gizmo.%s was removed; MCP schemas now always pass through to native tool_search",
+                    removed_key,
+                )
+                raw.pop(removed_key)
         if not isinstance(anthropic_raw, dict):
             anthropic_raw = {}
         mode_raw = raw.get("mode")

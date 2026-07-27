@@ -393,11 +393,16 @@ def select_tool_schemas_callback(
             session_id=session_id,
             **kwargs,
         )
+        # MCP passthrough names are shipped but never ranked (retirement
+        # 2026-07-27); exclude them from the anthropic hot set so the defer
+        # lane still defers MCP tools.
+        mcp_passthrough_names = set(result.metadata.get("mcp_passthrough") or [])
+        hot_tool_names = [name for name in result.selected_names if name not in mcp_passthrough_names]
         selected = maybe_anthropic_tools(
             provider,
             model,
             policy_schemas if cfg.mode == "anthropic_tool_search" else result.selected,
-            result.selected_names,
+            hot_tool_names,
             effective_cfg,
             explicit_capability=cfg.anthropic.tool_search_supported,
         )
@@ -419,6 +424,7 @@ def select_tool_schemas_callback(
             )
             selected = result.selected
             effective_cfg = fallback_cfg
+            mcp_passthrough_names = set(result.metadata.get("mcp_passthrough") or [])
         selected_before_session_load = selected
         selected = _inject_session_loaded(selected, schemas, cfg, session_id=session_id)
         if selected is not selected_before_session_load:
@@ -426,7 +432,8 @@ def select_tool_schemas_callback(
             injected_names = [tool_name(s) for s in selected if isinstance(s, dict) and tool_name(s) not in before_names]
         else:
             injected_names = []
-        metrics = _metrics_for_selection(effective_cfg.mode, schemas, selected, result.selected, result.always_included)
+        hot_selected = [s for s in result.selected if isinstance(s, dict) and tool_name(s) not in mcp_passthrough_names]
+        metrics = _metrics_for_selection(effective_cfg.mode, schemas, selected, hot_selected, result.always_included)
         if injected_names:
             metrics["session_loaded_injected"] = injected_names
         if result.metadata:
@@ -435,7 +442,7 @@ def select_tool_schemas_callback(
             metrics["recovery_meta_injected"] = recovery_meta_injected
             metrics["upstream_schema_count"] = upstream_schema_count
         metrics["selection_ms"] = round((perf_counter() - started) * 1000, 3)
-        metrics["selected_scores"] = {name: result.score_details.get(name, {}) for name in result.selected_names}
+        metrics["selected_scores"] = {name: result.score_details.get(name, {}) for name in result.selected_names if name not in mcp_passthrough_names}
         metrics["top_candidates"] = [
             {"name": name, "score": score, "details": result.score_details.get(name, {})}
             for name, score in sorted(result.scores.items(), key=lambda item: item[1], reverse=True)[:10]
