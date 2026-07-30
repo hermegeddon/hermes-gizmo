@@ -23,6 +23,7 @@ from .schemas import (
 from .selector import ToolSelector
 from .session_tools import SessionLoadedState
 from .tools import FULL_TOOLS_REQUEST_MARKER
+from .toolsets import is_mcp_schema
 from .types import Schema
 
 LOG = logging.getLogger(__name__)
@@ -67,6 +68,20 @@ def _profile_from_home(profile_home: str | None) -> str | None:
         return parts[-1]
     if parts and parts[-1] == ".hermes":
         return "default"
+    return None
+
+
+def _execution_profile_override() -> str | None:
+    """Return a config-profile override for execution kinds hidden behind platform.
+
+    Kanban workers are spawned through the CLI wrapper, so their selector
+    context arrives with ``platform == "cli"``; a platform-keyed profile
+    overlay cannot tell an operator CLI session from a worker lane. Reuse the
+    same signal ``build_decision_context`` uses (``HERMES_KANBAN_TASK``) to
+    route worker turns to the dedicated ``kanban_worker`` profile overlay.
+    """
+    if _env_value("HERMES_KANBAN_TASK"):
+        return "kanban_worker"
     return None
 
 
@@ -312,7 +327,7 @@ def select_tool_schemas_callback(
 ) -> list[Schema] | None:
     cfg = config or _load_config_for_hook()
     try:
-        cfg = cfg.for_context(platform=platform)
+        cfg = cfg.for_context(platform=platform, profile=_execution_profile_override())
         if not cfg.enabled:
             return None
         started = perf_counter()
@@ -337,21 +352,56 @@ def select_tool_schemas_callback(
             cfg.min_total_tools,
             decision_context,
         )
+        native_bridge_schemas: list[Schema] = []
         if native_tool_search_active(schemas):
             bridge_tools = native_tool_search_bridge_names(schemas)
-            metrics = reduction_metrics(cfg.mode, schemas, schemas, [])
-            metrics["selection_ms"] = round((perf_counter() - started) * 1000, 3)
-            metrics["skipped"] = True
-            metrics["skip_reason"] = "native_hermes_tool_search_active"
-            metrics["native_hermes_tool_search"] = True
-            metrics["native_hermes_bridge_tools"] = bridge_tools
-            if cfg.log_decisions:
-                LOG.info("gizmo skipped; Hermes native Tool Search is active", extra={"gizmo": metrics})
-                try:
-                    record_decision(metrics, decision_context)
-                except Exception as exc:
-                    LOG.warning("gizmo decision logging failed: %s", exc)
-            return None
+            if cfg.native_tool_search_policy != "compose":
+                metrics = reduction_metrics(cfg.mode, schemas, schemas, [])
+                metrics["selection_ms"] = round((perf_counter() - started) * 1000, 3)
+                metrics["skipped"] = True
+                metrics["skip_reason"] = "native_hermes_tool_search_active"
+                metrics["native_hermes_tool_search"] = True
+                metrics["native_hermes_bridge_tools"] = bridge_tools
+                if cfg.log_decisions:
+                    LOG.info("gizmo skipped; Hermes native Tool Search is active", extra={"gizmo": metrics})
+                    try:
+                        record_decision(metrics, decision_context)
+                    except Exception as exc:
+                        LOG.warning("gizmo decision logging failed: %s", exc)
+                return None
+            # Compose (2026-07-29): by the time this hook runs, native tiered
+            # disclosure has already replaced the MCP/plugin tail with the
+            # bridge stubs — but core tools never defer natively, so skipping
+            # here ships every core schema untrimmed on every turn (observed:
+            # 68 tools / ~34k schema tokens on the default CLI profile).
+            # Pull the bridge stubs out of the candidate pool, slim the
+            # remainder as usual, and unconditionally re-attach the stubs on
+            # every schema-returning path so deferred-tool discovery/dispatch
+            # is never lost. Gizmo recovery schemas are restored (ACP-style)
+            # so a slimmed-away tool stays recoverable.
+            bridge_names = set(bridge_tools)
+            native_bridge_schemas = [
+                schema
+                for schema in schemas
+                if isinstance(schema, dict)
+                and tool_name(schema) in bridge_names
+                and not is_mcp_schema(schema)
+            ]
+            schemas = [
+                schema
+                for schema in schemas
+                if not (
+                    isinstance(schema, dict)
+                    and tool_name(schema) in bridge_names
+                    and not is_mcp_schema(schema)
+                )
+            ]
+            schemas, compose_recovery_injected = _ensure_recovery_tool_schemas(schemas)
+            decision_context["native_hermes_tool_search"] = True
+            decision_context["native_tool_search_policy"] = "compose"
+            decision_context["native_hermes_bridge_tools"] = bridge_tools
+            if compose_recovery_injected:
+                decision_context["compose_recovery_injected"] = compose_recovery_injected
         policy_schemas = eligible_schemas(schemas, cfg)
         if _full_tools_requested(conversation_history):
             metrics = reduction_metrics(cfg.mode, schemas, policy_schemas, [])
@@ -364,7 +414,9 @@ def select_tool_schemas_callback(
                     record_decision(metrics, decision_context)
                 except Exception as exc:
                     LOG.warning("gizmo decision logging failed: %s", exc)
-            return None if cfg.dry_run else policy_schemas
+            if cfg.dry_run:
+                return None
+            return [*policy_schemas, *native_bridge_schemas]
         if len(schemas) < cfg.min_total_tools:
             metrics = reduction_metrics(cfg.mode, schemas, policy_schemas, [])
             metrics["selection_ms"] = round((perf_counter() - started) * 1000, 3)
@@ -379,7 +431,7 @@ def select_tool_schemas_callback(
                     LOG.warning("gizmo decision logging failed: %s", exc)
             if cfg.dry_run or len(policy_schemas) == len(schemas):
                 return None
-            return policy_schemas
+            return [*policy_schemas, *native_bridge_schemas]
 
         effective_cfg = cfg
         query = _selection_query(user_message, conversation_history, policy_schemas)
@@ -469,6 +521,8 @@ def select_tool_schemas_callback(
                 LOG.warning("gizmo decision logging failed: %s", exc)
         if cfg.dry_run:
             return None
+        if native_bridge_schemas:
+            return [*selected, *native_bridge_schemas]
         return selected
     except Exception:
         LOG.exception("gizmo selector failed; using original schemas")

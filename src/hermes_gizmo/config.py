@@ -14,6 +14,11 @@ import yaml
 LOG = logging.getLogger("hermes_gizmo.config")
 
 VALID_MODES = {"eager", "keyword", "hybrid", "anthropic_tool_search", "semantic_hybrid"}
+# Behavior when Hermes native tool_search has already installed its bridge
+# tools for the request. "skip" = stand down entirely (pre-2026-07-29
+# behavior). "compose" = keep the bridge stubs untouched but still slim the
+# visible core/plugin schemas that native tiered disclosure never defers.
+VALID_NATIVE_TOOL_SEARCH_POLICIES = {"skip", "compose"}
 # Modes that used to exist. Configs that still reference them fall back to
 # "keyword" with a logged warning instead of failing validation, so stale
 # profile overlays or restored config backups cannot break the selector hook.
@@ -83,6 +88,7 @@ class GizmoConfig:
     progressive_enabled: bool = False
     progressive_max_loaded: int = 20
     progressive_ttl_seconds: int = 3600
+    native_tool_search_policy: str = "skip"
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any] | None) -> "GizmoConfig":
@@ -105,6 +111,16 @@ class GizmoConfig:
         if isinstance(mode_raw, str) and mode_raw.strip().lower() in REMOVED_MODES:
             LOG.warning("gizmo.mode %r was removed; falling back to 'keyword'", mode_raw)
             raw["mode"] = "keyword"
+        policy_raw = raw.get("native_tool_search_policy")
+        if policy_raw is not None:
+            policy = str(policy_raw).strip().lower()
+            if policy not in VALID_NATIVE_TOOL_SEARCH_POLICIES:
+                LOG.warning(
+                    "gizmo.native_tool_search_policy %r is invalid; falling back to 'skip'",
+                    policy_raw,
+                )
+                policy = "skip"
+            raw["native_tool_search_policy"] = policy
         raw = _normalize_mapping(raw, cls.__dataclass_fields__, _LIST_FIELDS, _BOOL_FIELDS)
         raw["profiles"] = _normalize_profiles(profiles_raw)
         anthropic_raw = _normalize_mapping(
@@ -171,6 +187,11 @@ class GizmoConfig:
             raise ValueError("gizmo.progressive_ttl_seconds must be a finite integer")
         if self.progressive_ttl_seconds < 0:
             raise ValueError("gizmo.progressive_ttl_seconds must be >= 0")
+        if self.native_tool_search_policy not in VALID_NATIVE_TOOL_SEARCH_POLICIES:
+            raise ValueError(
+                f"Invalid gizmo.native_tool_search_policy {self.native_tool_search_policy!r}; "
+                f"expected one of {sorted(VALID_NATIVE_TOOL_SEARCH_POLICIES)}"
+            )
 
 
 def _normalize_string_list(value: Any, field_name: str) -> list[str]:

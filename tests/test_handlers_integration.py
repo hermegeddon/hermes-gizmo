@@ -1112,6 +1112,121 @@ def test_mcp_named_like_native_tool_search_does_not_force_skip(monkeypatch, tmp_
     assert selected == [schemas[3], schemas[0], schemas[1], schemas[2]]
 
 
+def test_selector_composes_with_native_tool_search_when_policy_compose(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setattr("hermes_gizmo.native.native_tool_search_available", lambda: True)
+    schemas = [
+        {"name": "terminal", "description": "Run commands"},
+        {"name": "tool_search", "description": "Search deferred tools"},
+        {"name": "tool_describe", "description": "Describe deferred tools"},
+        {"name": "tool_call", "description": "Call deferred tools"},
+        {"name": "web_search", "description": "Search the web"},
+        {"name": "image_generate", "description": "Generate images from prompts"},
+    ]
+
+    selected = select_tool_schemas_callback(
+        "search the web",
+        [],
+        schemas,
+        "model",
+        "tui",
+        session_id="native-compose-test",
+        config=GizmoConfig(
+            top_k=1,
+            always_include=[],
+            min_total_tools=0,
+            min_estimated_reduction_percent=0,
+            native_tool_search_policy="compose",
+        ),
+    )
+
+    assert selected is not None
+    names = [s.get("name") for s in selected if isinstance(s, dict)]
+    # The native bridge stubs are re-attached untouched.
+    assert {"tool_search", "tool_describe", "tool_call"} <= set(names)
+    # Selection still slims the non-bridge pool.
+    assert "web_search" in names
+    assert "image_generate" not in names
+    # Gizmo recovery schemas are restored so slimmed-away tools stay recoverable.
+    assert "gizmo_request_full_tools" in names
+    event = read_decisions()[0]
+    assert event["metrics"].get("skipped") is not True
+    assert event["context"]["native_tool_search_policy"] == "compose"
+    assert event["context"]["native_hermes_bridge_tools"] == ["tool_call", "tool_describe", "tool_search"]
+
+
+def test_compose_policy_preserves_bridge_on_full_tools_fallback(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setattr("hermes_gizmo.native.native_tool_search_available", lambda: True)
+    schemas = [
+        {"name": "terminal", "description": "Run commands"},
+        {"name": "tool_search", "description": "Search deferred tools"},
+        {"name": "tool_describe", "description": "Describe deferred tools"},
+        {"name": "tool_call", "description": "Call deferred tools"},
+        {"name": "web_search", "description": "Search the web"},
+    ]
+    marker_message = {
+        "role": "tool",
+        "content": json.dumps({FULL_TOOLS_REQUEST_MARKER: True}),
+    }
+
+    selected = select_tool_schemas_callback(
+        "retry the task",
+        [marker_message, {"role": "user", "content": "retry the task"}],
+        schemas,
+        "model",
+        "tui",
+        session_id="native-compose-full-tools-test",
+        config=GizmoConfig(
+            top_k=1,
+            always_include=[],
+            min_total_tools=0,
+            log_decisions=False,
+            native_tool_search_policy="compose",
+        ),
+    )
+
+    assert selected is not None
+    names = [s.get("name") for s in selected if isinstance(s, dict)]
+    # Full-tools fallback returns the whole (non-bridge) pool AND the bridge.
+    assert {"terminal", "web_search", "tool_search", "tool_describe", "tool_call"} <= set(names)
+
+
+def test_kanban_worker_env_keeps_skip_despite_cli_compose_profile(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("HERMES_KANBAN_TASK", "t_test")
+    monkeypatch.setattr("hermes_gizmo.native.native_tool_search_available", lambda: True)
+    schemas = [
+        {"name": "terminal", "description": "Run commands"},
+        {"name": "tool_search", "description": "Search deferred tools"},
+        {"name": "tool_describe", "description": "Describe deferred tools"},
+        {"name": "tool_call", "description": "Call deferred tools"},
+        {"name": "web_search", "description": "Search the web"},
+    ]
+
+    selected = select_tool_schemas_callback(
+        "search the web",
+        [],
+        schemas,
+        "model",
+        "cli",
+        session_id="native-compose-kanban-worker-test",
+        config=GizmoConfig(
+            top_k=1,
+            always_include=[],
+            min_total_tools=0,
+            profiles={"cli": {"native_tool_search_policy": "compose"}},
+        ),
+    )
+
+    # Workers arrive with platform == "cli" but must be routed to the
+    # kanban_worker profile overlay, which does not enable compose — so the
+    # hook stands down exactly as before.
+    assert selected is None
+    event = read_decisions()[0]
+    assert event["metrics"]["skip_reason"] == "native_hermes_tool_search_active"
+
+
 def test_doctor_reports_invalid_config_without_crashing(tmp_path):
     from argparse import Namespace
     from hermes_gizmo.cli import handle_cli

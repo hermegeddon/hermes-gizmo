@@ -4,6 +4,9 @@
 
 ### Added
 
+- Added `gizmo.native_tool_search_policy` (`"skip"` default, `"compose"`; per-profile overridable). Under `compose`, when the Hermes native tool_search bridge is active Gizmo no longer stands down: it slims the visible core/plugin schemas that native tiered disclosure never defers, re-attaches the untouched bridge stubs on every schema-returning path, and restores its recovery schemas (ACP-style) so slimmed-away tools stay recoverable via `gizmo_request_full_tools`. Motivation: native tiered disclosure activates the bridge whenever any deferrable tool exists, so the former unconditional skip disabled slimming on effectively every turn (observed 2026-07-29: 68 tools / ~34k schema tokens shipped untrimmed per turn on the default CLI profile; compose cut it to ~9.7k).
+- Kanban worker turns (detected via `HERMES_KANBAN_TASK`, the same signal decision contexts use) are now routed to the `kanban_worker` config profile overlay instead of the `cli` overlay their platform string would select, so worker lanes can stay on `skip` while interactive CLI/TUI profiles opt into `compose`.
+
 ### Changed
 
 - Completed the Hermes Gizmo hard rename across the Python distribution and namespace, plugin discovery, tools, commands, config/state paths, dashboard routes, scripts, documentation, and tests.
