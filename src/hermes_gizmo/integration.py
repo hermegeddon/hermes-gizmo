@@ -29,8 +29,11 @@ from .types import Schema
 LOG = logging.getLogger(__name__)
 
 FALLBACK_INSTRUCTION = (
-    "Gizmo may hide tools. If a skill or task requires a missing tool, "
-    "call gizmo_request_full_tools; do not invent replacement tools."
+    "Gizmo may hide tools. If a needed tool is missing from the list and a "
+    "tool_search/tool_call bridge is available, prefer discovering the tool "
+    "with tool_search and invoking it with tool_call. Call "
+    "gizmo_request_full_tools only when the tool cannot be reached that way; "
+    "do not invent replacement tools."
 )
 
 _TOOL_NAME_RE = re.compile(r"\b[a-z][a-z0-9_]{2,}\b")
@@ -242,7 +245,10 @@ def _contains_full_tools_request(value: Any) -> bool:
     return False
 
 
-def _full_tools_requested(conversation_history: list[Any] | None) -> bool:
+def _full_tools_requested(
+    conversation_history: list[Any] | None,
+    max_assistant_turns: int = 0,
+) -> bool:
     history = conversation_history or []
     last_marker_index: int | None = None
     for index, item in enumerate(history):
@@ -260,9 +266,25 @@ def _full_tools_requested(conversation_history: list[Any] | None) -> bool:
         for item in history[last_marker_index + 1 :]
         if isinstance(item, dict) and item.get("role") == "user"
     )
-    if user_messages_after_marker <= 1:
-        return True
-    return False
+    if user_messages_after_marker > 1:
+        return False
+
+    # Bounded grant (2026-07-30): agentic runs carry a single user message, so
+    # the user-retry expiry alone keeps the full catalog for the entire
+    # remainder of the run — observed: one fallback call at iteration ~3
+    # shipped 70 tools/~32k tokens for 14+ further iterations. When
+    # ``full_tools_grant_iterations`` > 0, additionally expire the grant after
+    # that many assistant turns following the marker; the selection query's
+    # recent-mentions boost keeps just-used tools in the re-trimmed set.
+    if max_assistant_turns > 0:
+        assistant_after_marker = sum(
+            1
+            for item in history[last_marker_index + 1 :]
+            if isinstance(item, dict) and item.get("role") == "assistant"
+        )
+        if assistant_after_marker > max_assistant_turns:
+            return False
+    return True
 
 
 def _text_content(value: Any) -> str:
@@ -403,7 +425,7 @@ def select_tool_schemas_callback(
             if compose_recovery_injected:
                 decision_context["compose_recovery_injected"] = compose_recovery_injected
         policy_schemas = eligible_schemas(schemas, cfg)
-        if _full_tools_requested(conversation_history):
+        if _full_tools_requested(conversation_history, cfg.full_tools_grant_iterations):
             metrics = reduction_metrics(cfg.mode, schemas, policy_schemas, [])
             metrics["selection_ms"] = round((perf_counter() - started) * 1000, 3)
             metrics["skipped"] = True

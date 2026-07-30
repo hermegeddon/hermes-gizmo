@@ -89,6 +89,13 @@ class GizmoConfig:
     progressive_max_loaded: int = 20
     progressive_ttl_seconds: int = 3600
     native_tool_search_policy: str = "skip"
+    # Bounded full-tools grant: after gizmo_request_full_tools fires, keep the
+    # full schema set for the calling iteration plus this many further
+    # assistant turns, then resume normal selection (0 = legacy behavior, the
+    # grant lasts until the second user message). Agentic runs have a single
+    # user message, so the legacy expiry alone ships the full catalog for the
+    # entire remainder of the run.
+    full_tools_grant_iterations: int = 0
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any] | None) -> "GizmoConfig":
@@ -192,6 +199,10 @@ class GizmoConfig:
                 f"Invalid gizmo.native_tool_search_policy {self.native_tool_search_policy!r}; "
                 f"expected one of {sorted(VALID_NATIVE_TOOL_SEARCH_POLICIES)}"
             )
+        if not isinstance(self.full_tools_grant_iterations, int) or isinstance(self.full_tools_grant_iterations, bool) or not math.isfinite(self.full_tools_grant_iterations):
+            raise ValueError("gizmo.full_tools_grant_iterations must be a finite integer")
+        if self.full_tools_grant_iterations < 0:
+            raise ValueError("gizmo.full_tools_grant_iterations must be >= 0")
 
 
 def _normalize_string_list(value: Any, field_name: str) -> list[str]:

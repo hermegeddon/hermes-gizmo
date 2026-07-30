@@ -664,6 +664,87 @@ def test_full_tools_request_marker_expires_after_retry_user_turn(monkeypatch, tm
     assert out == [schemas[1]]
 
 
+def test_full_tools_grant_expires_after_bounded_assistant_iterations(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    schemas = [
+        {"name": "read_file", "description": "Read files"},
+        {"name": "search_files", "description": "Search files"},
+    ]
+    # Agentic run: single user message, marker fired mid-run, then three
+    # assistant iterations. With full_tools_grant_iterations=2 the grant must
+    # expire (3 > 2) and normal selection resume.
+    conversation_history = [
+        {"role": "user", "content": "fix the failing tests"},
+        {"role": "tool", "content": json.dumps({FULL_TOOLS_REQUEST_MARKER: True})},
+        {"role": "assistant", "content": "Retrying with full tools."},
+        {"role": "assistant", "content": "Still working."},
+        {"role": "assistant", "content": "More work."},
+    ]
+
+    out = select_tool_schemas_callback(
+        "search",
+        conversation_history,
+        schemas,
+        "model",
+        "tui",
+        config=GizmoConfig(
+            top_k=1,
+            always_include=[],
+            min_total_tools=0,
+            log_decisions=False,
+            full_tools_grant_iterations=2,
+        ),
+    )
+
+    assert out == [schemas[1]]
+
+
+def test_full_tools_grant_survives_within_bounded_iterations(monkeypatch, tmp_path):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    schemas = [
+        {"name": "read_file", "description": "Read files"},
+        {"name": "search_files", "description": "Search files"},
+    ]
+    # Two assistant turns after the marker is within a grant of 2 — full
+    # schemas must still ship; and with the default (0 = legacy) the grant
+    # must persist regardless of assistant-turn count.
+    conversation_history = [
+        {"role": "user", "content": "fix the failing tests"},
+        {"role": "tool", "content": json.dumps({FULL_TOOLS_REQUEST_MARKER: True})},
+        {"role": "assistant", "content": "Retrying with full tools."},
+        {"role": "assistant", "content": "Still working."},
+    ]
+
+    out = select_tool_schemas_callback(
+        "search",
+        conversation_history,
+        schemas,
+        "model",
+        "tui",
+        config=GizmoConfig(
+            top_k=1,
+            always_include=[],
+            min_total_tools=0,
+            log_decisions=False,
+            full_tools_grant_iterations=2,
+        ),
+    )
+    assert out == [schemas[0], schemas[1]]
+
+    many_iterations = conversation_history + [
+        {"role": "assistant", "content": f"iteration {i}"} for i in range(10)
+    ]
+    out_legacy = select_tool_schemas_callback(
+        "search",
+        many_iterations,
+        schemas,
+        "model",
+        "tui",
+        config=GizmoConfig(top_k=1, always_include=[], min_total_tools=0, log_decisions=False),
+    )
+    assert out_legacy == [schemas[0], schemas[1]]
+
+
 def test_recent_assistant_tool_mention_influences_ambiguous_retry(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     schemas = [
